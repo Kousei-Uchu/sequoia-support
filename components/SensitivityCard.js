@@ -9,6 +9,9 @@ const SensitivityCard = ({
   onDescriptionChange,
   readOnly = false 
 }) => {
+  // Don't render anything if not selected in read-only mode
+  if (readOnly && !isSelected) return null;
+
   const { 
     id = '', 
     icon = '', 
@@ -33,9 +36,7 @@ const SensitivityCard = ({
               }
             }}
           />
-        ) : (
-          isSelected && <span className="selected-indicator">✓</span>
-        )}
+        ) : null}
         
         <label htmlFor={isEditable ? `sens-${id}` : undefined}>
           {icon && <img src={icon} alt="" className="sensitivity-icon" />}
