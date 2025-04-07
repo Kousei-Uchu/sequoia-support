@@ -18,22 +18,43 @@ export default NextAuth({
     })
   ],
   secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+    updateAge: 24 * 60 * 60, // 24 hours
+  },
+  cookies: {
+    sessionToken: {
+      name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        domain: process.env.NODE_ENV === 'production' ? '.mydigitalsunflower.vercel.app' : undefined
+      }
+    }
+  },
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
+    async jwt({ token, user, account }) {
+      // Initial sign in
+      if (account && user) {
+        token.accessToken = account.access_token
         token.username = user.username
       }
       return token
     },
     async session({ session, token }) {
-      if (token?.username) {
-        session.user.username = token.username
-      }
+      session.accessToken = token.accessToken
+      session.user.username = token.username
       return session
     }
   },
   pages: {
     signIn: '/auth/signin',
-    error: '/auth/error'
-  }
+    error: '/auth/error',
+    signOut: '/auth/signout'
+  },
+  debug: process.env.NODE_ENV === 'development',
+  useSecureCookies: process.env.NODE_ENV === 'production'
 })
