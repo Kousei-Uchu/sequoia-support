@@ -1,16 +1,14 @@
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/router';
-import { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
-import Header from '../../components/Header';
-
-// Import your custom icons and options
-import { sensitivityOptions, supportOptions } from '../../lib/profileOptions';
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/router'
+import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
+import Header from '../../components/Header'
+import { sensitivityOptions, supportOptions } from '../../lib/profileOptions'
 
 function EditProfileComponent() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-  const { username } = router.query;
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const { username } = router.query
   const [profile, setProfile] = useState({
     name: '',
     about: '',
@@ -22,60 +20,63 @@ function EditProfileComponent() {
       contactNumber: '',
       instructions: []
     }
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  // Handle session and authentication
   useEffect(() => {
-    if (status === 'loading') return;
-
-    if (!session) {
-      router.push('/auth/signin');
-      return;
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin')
+      return
     }
 
-    if (session.user.username !== username) {
-      router.push('/');
-      return;
+    if (status === 'authenticated' && session?.user?.username !== username) {
+      router.push('/')
+      return
     }
 
-    // Only load profile if we passed auth checks
     const loadProfile = async () => {
       try {
-        const res = await fetch(`/api/get-profile?username=${username}`);
-        if (!res.ok) throw new Error('Failed to load profile');
-        const data = await res.json();
-        setProfile(data);
+        const res = await fetch(`/api/get-profile?username=${username}`)
+        if (!res.ok) throw new Error('Failed to load profile')
+        const data = await res.json()
+        if (data) {
+          setProfile({
+            ...profile,
+            ...data,
+            sensitivities: data.sensitivities || [],
+            supports: data.supports || []
+          })
+        }
       } catch (err) {
-        setError(err.message);
+        setError(err.message)
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
+    }
 
-    loadProfile();
-  }, [session, status, username]);
+    if (status === 'authenticated') loadProfile()
+  }, [session, status, username])
 
   const handleSave = async (e) => {
-    e.preventDefault();
-    setError(null);
+    e.preventDefault()
+    setError(null)
     try {
       const response = await fetch('/api/save-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...profile,
-          username: session.user.username // Use authenticated username
+          username: session.user.username
         })
-      });
+      })
       
-      if (!response.ok) throw new Error('Save failed');
-      router.push(`/profile/${session.user.username}`);
+      if (!response.ok) throw new Error(await response.text())
+      router.push(`/profile/${session.user.username}`)
     } catch (err) {
-      setError(err.message);
+      setError(err.message)
     }
-  };
+  }
 
   const updateSensitivity = (id, field, value) => {
     setProfile(prev => ({
@@ -83,18 +84,18 @@ function EditProfileComponent() {
       sensitivities: prev.sensitivities.map(item => 
         item.icon === id ? { ...item, [field]: value } : item
       )
-    }));
-  };
+    }))
+  }
 
   const toggleSensitivity = (option) => {
     setProfile(prev => {
-      const hasSensitivity = prev.sensitivities.some(s => s.icon === option.id);
+      const hasSensitivity = prev.sensitivities.some(s => s.icon === option.id)
       
       if (hasSensitivity) {
         return {
           ...prev,
           sensitivities: prev.sensitivities.filter(s => s.icon !== option.id)
-        };
+        }
       } else {
         return {
           ...prev,
@@ -106,10 +107,10 @@ function EditProfileComponent() {
               description: ''
             }
           ]
-        };
+        }
       }
-    });
-  };
+    })
+  }
 
   if (status === 'loading' || loading) {
     return (
@@ -117,7 +118,7 @@ function EditProfileComponent() {
         <Header />
         <div className="loading">Loading...</div>
       </div>
-    );
+    )
   }
 
   if (error) {
@@ -126,7 +127,7 @@ function EditProfileComponent() {
         <Header />
         <div className="error">{error}</div>
       </div>
-    );
+    )
   }
 
   return (
@@ -134,7 +135,6 @@ function EditProfileComponent() {
       <Header />
       
       <form onSubmit={handleSave}>
-        {/* About You Section */}
         <section className="editor-section">
           <h2>About You</h2>
           <div className="form-group">
@@ -166,7 +166,6 @@ function EditProfileComponent() {
           </div>
         </section>
 
-        {/* Sensitivities Section */}
         <section className="editor-section">
           <h2>My Sensitivities</h2>
           <div className="grid-3">
@@ -196,7 +195,6 @@ function EditProfileComponent() {
           </div>
         </section>
 
-        {/* Support Needs Section */}
         <section className="editor-section">
           <h2>Support Needs</h2>
           <div className="grid-2">
@@ -218,14 +216,14 @@ function EditProfileComponent() {
                             description: ''
                           }
                         ]
-                      });
+                      })
                     } else {
                       setProfile({
                         ...profile,
                         supports: profile.supports.filter(
                           s => s.icon !== option.icon
                         )
-                      });
+                      })
                     }
                   }}
                 />
@@ -256,7 +254,6 @@ function EditProfileComponent() {
           </div>
         </section>
 
-        {/* Emergency Info Section */}
         <section className="editor-section">
           <h2>Emergency Information</h2>
           <div className="form-group">
@@ -296,10 +293,9 @@ function EditProfileComponent() {
         </button>
       </form>
     </div>
-  );
+  )
 }
 
-// Disable SSR to prevent session issues
 export default dynamic(() => Promise.resolve(EditProfileComponent), { 
   ssr: false,
   loading: () => (
@@ -308,4 +304,4 @@ export default dynamic(() => Promise.resolve(EditProfileComponent), {
       <div className="loading">Loading editor...</div>
     </div>
   )
-});
+})
