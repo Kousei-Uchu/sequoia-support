@@ -4,7 +4,15 @@ import { defaultProfile, sensitivityOptions, supportOptions } from '../lib/profi
 import Header from '../components/Header';
 
 export default function Editor() {
-  const [profile, setProfile] = useState(defaultProfile);
+  const [profile, setProfile] = useState({
+    ...defaultProfile,
+    emergency: {
+      contacts: [
+        { name: '', number: '' }
+      ],
+      instructions: []
+    }
+  });
   const router = useRouter();
 
   const handleSave = async (e) => {
@@ -28,13 +36,153 @@ export default function Editor() {
     }
   };
 
-  const updateSensitivity = (id, field, value) => {
+  const toggleSensitivity = (option) => {
+    setProfile(prev => {
+      const hasSensitivity = prev.sensitivities.some(s => s.icon === option.id);
+      
+      if (hasSensitivity) {
+        return {
+          ...prev,
+          sensitivities: prev.sensitivities.filter(s => s.icon !== option.id)
+        };
+      } else {
+        return {
+          ...prev,
+          sensitivities: [
+            ...prev.sensitivities,
+            {
+              icon: option.id,
+              title: option.label,
+              description: option.defaultDescription || ""
+            }
+          ]
+        };
+      }
+    });
+  };
+
+  const toggleSupport = (option) => {
+    setProfile(prev => {
+      const hasSupport = prev.supports.some(s => s.icon === option.icon);
+      
+      if (hasSupport) {
+        return {
+          ...prev,
+          supports: prev.supports.filter(s => s.icon !== option.icon)
+        };
+      } else {
+        return {
+          ...prev,
+          supports: [
+            ...prev.supports,
+            {
+              icon: option.icon,
+              title: option.label,
+              description: option.defaultDescription || ""
+            }
+          ]
+        };
+      }
+    });
+  };
+
+  const updateSensitivityDescription = (id, value) => {
     setProfile(prev => ({
       ...prev,
       sensitivities: prev.sensitivities.map(item => 
-        item.icon === id ? { ...item, [field]: value } : item
+        item.icon === id ? { ...item, description: value } : item
       )
     }));
+  };
+
+  const updateSupportDescription = (icon, value) => {
+    setProfile(prev => ({
+      ...prev,
+      supports: prev.supports.map(item => 
+        item.icon === icon ? { ...item, description: value } : item
+      )
+    }));
+  };
+
+  // Emergency Contacts Functions
+  const addEmergencyContact = () => {
+    setProfile(prev => ({
+      ...prev,
+      emergency: {
+        ...prev.emergency,
+        contacts: [...prev.emergency.contacts, { name: '', number: '' }]
+      }
+    }));
+  };
+
+  const removeEmergencyContact = (index) => {
+    setProfile(prev => {
+      const newContacts = [...prev.emergency.contacts];
+      newContacts.splice(index, 1);
+      return {
+        ...prev,
+        emergency: {
+          ...prev.emergency,
+          contacts: newContacts
+        }
+      };
+    });
+  };
+
+  const updateEmergencyContact = (index, field, value) => {
+    setProfile(prev => {
+      const newContacts = [...prev.emergency.contacts];
+      newContacts[index] = {
+        ...newContacts[index],
+        [field]: value
+      };
+      return {
+        ...prev,
+        emergency: {
+          ...prev.emergency,
+          contacts: newContacts
+        }
+      };
+    });
+  };
+
+  // Emergency Instructions Functions
+  const addEmergencyInstruction = () => {
+    setProfile(prev => ({
+      ...prev,
+      emergency: {
+        ...prev.emergency,
+        instructions: [...prev.emergency.instructions, ""]
+      }
+    }));
+  };
+
+  const removeEmergencyInstruction = (index) => {
+    setProfile(prev => {
+      const newInstructions = [...prev.emergency.instructions];
+      newInstructions.splice(index, 1);
+      return {
+        ...prev,
+        emergency: {
+          ...prev.emergency,
+          instructions: newInstructions
+        }
+      };
+    });
+  };
+
+  const updateEmergencyInstruction = (index, value) => {
+    setProfile(prev => {
+      const newInstructions = [...prev.emergency.instructions];
+      newInstructions[index] = value;
+      return {
+        ...prev,
+        emergency: {
+          ...prev.emergency,
+          instructions: newInstructions
+        }
+      };
+    });
   };
 
   return (
@@ -84,40 +232,19 @@ export default function Editor() {
                   type="checkbox"
                   id={`sens-${option.id}`}
                   checked={profile.sensitivities.some(s => s.icon === option.id)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setProfile({
-                        ...profile,
-                        sensitivities: [
-                          ...profile.sensitivities,
-                          {
-                            icon: option.id,
-                            title: option.label,
-                            description: defaultProfile.sensitivities
-                              .find(s => s.icon === option.id)?.description || ""
-                          }
-                        ]
-                      });
-                    } else {
-                      setProfile({
-                        ...profile,
-                        sensitivities: profile.sensitivities.filter(
-                          s => s.icon !== option.id
-                        )
-                      });
-                    }
-                  }}
+                  onChange={() => toggleSensitivity(option)}
                 />
                 <label htmlFor={`sens-${option.id}`}>
-                  <img src={option.icon} alt="" />
+                  <img src={option.icon} alt="" className="sensitivity-icon" />
                   <span>{option.label}</span>
                 </label>
                 
                 {profile.sensitivities.some(s => s.icon === option.id) && (
                   <textarea
                     value={profile.sensitivities.find(s => s.icon === option.id)?.description || ""}
-                    onChange={(e) => updateSensitivity(option.id, 'description', e.target.value)}
+                    onChange={(e) => updateSensitivityDescription(option.id, e.target.value)}
                     placeholder="Describe your needs..."
+                    className="sensitivity-description"
                   />
                 )}
               </div>
@@ -135,29 +262,7 @@ export default function Editor() {
                   type="checkbox"
                   id={`supp-${option.id}`}
                   checked={profile.supports.some(s => s.icon === option.icon)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setProfile({
-                        ...profile,
-                        supports: [
-                          ...profile.supports,
-                          {
-                            icon: option.icon,
-                            title: option.label,
-                            description: defaultProfile.supports
-                              .find(s => s.icon === option.icon)?.description || ""
-                          }
-                        ]
-                      });
-                    } else {
-                      setProfile({
-                        ...profile,
-                        supports: profile.supports.filter(
-                          s => s.icon !== option.icon
-                        )
-                      });
-                    }
-                  }}
+                  onChange={() => toggleSupport(option)}
                 />
                 <label htmlFor={`supp-${option.id}`}>
                   <i className={`fas fa-${option.icon}`}></i>
@@ -167,17 +272,9 @@ export default function Editor() {
                 {profile.supports.some(s => s.icon === option.icon) && (
                   <textarea
                     value={profile.supports.find(s => s.icon === option.icon)?.description || ""}
-                    onChange={(e) => 
-                      setProfile({
-                        ...profile,
-                        supports: profile.supports.map(item => 
-                          item.icon === option.icon 
-                            ? { ...item, description: e.target.value } 
-                            : item
-                        )
-                      })
-                    }
+                    onChange={(e) => updateSupportDescription(option.icon, e.target.value)}
                     placeholder="How can others help?"
+                    className="support-description"
                   />
                 )}
               </div>
@@ -188,33 +285,72 @@ export default function Editor() {
         {/* Emergency Info Section */}
         <section className="editor-section">
           <h2>Emergency Information</h2>
-          <div className="form-group">
-            <label>Emergency Contact Name</label>
-            <input
-              value={profile.emergency.contactName}
-              onChange={(e) => setProfile({
-                ...profile,
-                emergency: {
-                  ...profile.emergency,
-                  contactName: e.target.value
-                }
-              })}
-            />
-          </div>
           
-          <div className="form-group">
-            <label>Emergency Contact Number</label>
-            <input
-              type="tel"
-              value={profile.emergency.contactNumber}
-              onChange={(e) => setProfile({
-                ...profile,
-                emergency: {
-                  ...profile.emergency,
-                  contactNumber: e.target.value
-                }
-              })}
-            />
+          <div className="emergency-contacts">
+            <h3>Emergency Contacts</h3>
+            {profile.emergency.contacts.map((contact, index) => (
+              <div key={index} className="contact-group">
+                <div className="form-group">
+                  <label>Contact Name</label>
+                  <input
+                    value={contact.name}
+                    onChange={(e) => updateEmergencyContact(index, 'name', e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Contact Number</label>
+                  <input
+                    type="tel"
+                    value={contact.number}
+                    onChange={(e) => updateEmergencyContact(index, 'number', e.target.value)}
+                  />
+                </div>
+                {profile.emergency.contacts.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeEmergencyContact(index)}
+                    className="remove-contact"
+                  >
+                    Remove Contact
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addEmergencyContact}
+              className="add-contact"
+            >
+              + Add Another Contact
+            </button>
+          </div>
+
+          <div className="emergency-instructions">
+            <h3>Emergency Instructions</h3>
+            {profile.emergency.instructions.map((instruction, index) => (
+              <div key={index} className="instruction-item">
+                <input
+                  type="text"
+                  value={instruction}
+                  onChange={(e) => updateEmergencyInstruction(index, e.target.value)}
+                  placeholder="e.g., Remain calm and speak softly"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeEmergencyInstruction(index)}
+                  className="remove-instruction"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addEmergencyInstruction}
+              className="add-instruction"
+            >
+              + Add Instruction
+            </button>
           </div>
         </section>
 

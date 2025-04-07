@@ -201,6 +201,89 @@ body {
   background: #00703d;
 }
 
+/* Emergency Contacts Section */
+.emergency-contacts {
+  margin-bottom: 2rem;
+}
+
+.contact-group {
+  background: #f9f9f9;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.remove-contact {
+  position: absolute;
+  right: 1rem;
+  top: 1rem;
+  background: none;
+  border: none;
+  color: var(--error-red);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.add-contact {
+  background: none;
+  border: 1px dashed #ccc;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  color: var(--sequoia-dark);
+}
+
+.add-contact:hover {
+  border-color: var(--sequoia-dark);
+}
+
+/* Emergency Instructions */
+.emergency-instructions {
+  margin-top: 2rem;
+}
+
+.instruction-item {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+}
+
+.instruction-item input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.remove-instruction {
+  background: none;
+  border: none;
+  color: var(--error-red);
+  cursor: pointer;
+  padding: 0.5rem;
+}
+
+.add-instruction {
+  background: none;
+  border: 1px dashed #ccc;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  color: var(--sequoia-dark);
+}
+
+.add-instruction:hover {
+  border-color: var(--sequoia-dark);
+}
+
 /* Profile Page Styles */
 .profile-container {
   max-width: 1200px;
@@ -293,6 +376,7 @@ body {
   background: rgba(230, 57, 70, 0.1);
   border-radius: 4px;
 }
+
 
 /* Home Page Styles */
 .home-container {
