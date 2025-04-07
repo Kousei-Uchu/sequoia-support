@@ -9,9 +9,9 @@ export default NextAuth({
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
       profile(profile) {
         return {
-          id: profile.id,
+          id: profile.id.toString(),
           name: profile.name || profile.login,
-          username: profile.login, // Important for your profile URLs
+          username: profile.login,
           email: profile.email,
           image: profile.avatar_url
         }
@@ -27,7 +27,9 @@ export default NextAuth({
       return token
     },
     async session({ session, token }) {
-      session.user.username = token.username
+      if (token?.username) {
+        session.user.username = token.username
+      }
       return session
     }
   }
