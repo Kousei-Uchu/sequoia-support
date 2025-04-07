@@ -2,59 +2,60 @@ import React from 'react';
 import PropTypes from 'prop-types';
 
 const SensitivityCard = ({ 
-  option = {}, // Default empty object to prevent crashes
+  option = {}, 
   isSelected = false, 
-  onToggle = () => {}, 
-  description = '', 
-  onDescriptionChange = () => {} 
+  onToggle, 
+  description, 
+  onDescriptionChange,
+  readOnly = false 
 }) => {
-  // Safely access option properties with fallbacks
   const { 
     id = '', 
     icon = '', 
     label = 'Unknown Sensitivity', 
     defaultDescription = '' 
-  } = option || {};
+  } = option;
+
+  const isEditable = !readOnly && onToggle && onDescriptionChange;
 
   return (
-    <div className={`sensitivity-card ${isSelected ? 'selected' : ''}`}>
+    <div className={`sensitivity-card ${isSelected ? 'selected' : ''} ${readOnly ? 'read-only' : ''}`}>
       <div className="sensitivity-header">
-        <input
-          type="checkbox"
-          id={`sens-${id}`}
-          checked={isSelected}
-          onChange={() => {
-            onToggle(option);
-            // When selecting, set default description if empty
-            if (!isSelected && !description) {
-              onDescriptionChange(defaultDescription);
-            }
-          }}
-          aria-label={`Toggle ${label}`}
-        />
-        <label htmlFor={`sens-${id}`}>
-          {icon && (
-            <img 
-              src={icon} 
-              alt="" 
-              className="sensitivity-icon" 
-              onError={(e) => {
-                e.target.style.display = 'none'; // Hide broken images
-              }}
-            />
-          )}
+        {isEditable ? (
+          <input
+            type="checkbox"
+            id={`sens-${id}`}
+            checked={isSelected}
+            onChange={() => {
+              onToggle(option);
+              if (!isSelected && !description) {
+                onDescriptionChange(defaultDescription);
+              }
+            }}
+          />
+        ) : (
+          isSelected && <span className="selected-indicator">✓</span>
+        )}
+        
+        <label htmlFor={isEditable ? `sens-${id}` : undefined}>
+          {icon && <img src={icon} alt="" className="sensitivity-icon" />}
           <span>{label}</span>
         </label>
       </div>
       
-      {isSelected && (
-        <textarea
-          value={description}
-          onChange={(e) => onDescriptionChange(e.target.value)}
-          placeholder="Describe your specific needs..."
-          className="sensitivity-description"
-          aria-label={`Description for ${label}`}
-        />
+      {isSelected && description && (
+        <div className="sensitivity-description-container">
+          {isEditable ? (
+            <textarea
+              value={description}
+              onChange={(e) => onDescriptionChange(e.target.value)}
+              placeholder="Describe your specific needs..."
+              className="sensitivity-description"
+            />
+          ) : (
+            <p className="sensitivity-description-readonly">{description}</p>
+          )}
+        </div>
       )}
     </div>
   );
@@ -66,11 +67,12 @@ SensitivityCard.propTypes = {
     icon: PropTypes.string,
     label: PropTypes.string,
     defaultDescription: PropTypes.string
-  }),
+  }).isRequired,
   isSelected: PropTypes.bool,
   onToggle: PropTypes.func,
   description: PropTypes.string,
-  onDescriptionChange: PropTypes.func
+  onDescriptionChange: PropTypes.func,
+  readOnly: PropTypes.bool
 };
 
 export default SensitivityCard;
