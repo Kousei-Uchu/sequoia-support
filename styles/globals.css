@@ -353,7 +353,7 @@ body {
   box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 
-/* Updated Sensitivity Card Styles */
+/* Sensitivity Card */
 .sensitivity-card {
   background: white;
   border-radius: 8px;
@@ -376,6 +376,13 @@ body {
   width: 32px;
   height: 32px;
   object-fit: contain;
+}
+
+.sensitivity-icon.fas {
+  font-size: 1.5rem;
+  color: var(--sequoia-lavender-dark);
+  min-width: 32px;
+  text-align: center;
 }
 
 .sensitivity-title {
@@ -406,6 +413,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  margin-top: 1rem;
 }
 
 .support-item {
@@ -414,7 +422,7 @@ body {
   padding: 1.5rem;
   display: flex;
   gap: 1.5rem;
-  align-items: center;
+  align-items: flex-start;
   border-left: 4px solid var(--sequoia-lavender-light);
   box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
@@ -422,6 +430,40 @@ body {
 .support-icon {
   font-size: 1.5rem;
   color: var(--sequoia-lavender-dark);
+  min-width: 40px;
+}
+
+.support-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.support-text h3 {
+  margin: 0 0 0.5rem 0;
+  color: var(--sequoia-lavender-dark);
+}
+
+/* Emergency Info */
+.emergency-section {
+  background: white;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-top: 2rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.emergency-content ul {
+  padding-left: 1.5rem;
+}
+
+.emergency-content li {
+  margin-bottom: 0.5rem;
+}
+
+.emergency-instructions,
+.emergency-contacts {
+  margin-top: 1.5rem;
 }
 
 /* Loading and Error States */
