@@ -4,7 +4,15 @@ import { defaultProfile, sensitivityOptions, supportOptions } from '../lib/profi
 import Header from '../components/Header';
 
 export default function Editor() {
-  const [profile, setProfile] = useState(defaultProfile);
+  const [profile, setProfile] = useState({
+    ...defaultProfile,
+    // Initialize with empty emergency contacts
+    emergency: {
+      contactName: '',
+      contactNumber: '',
+      instructions: []
+    }
+  });
   const router = useRouter();
 
   const handleSave = async (e) => {
@@ -14,10 +22,7 @@ export default function Editor() {
       const response = await fetch('/api/save-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...profile,
-          username: profile.name.toLowerCase().replace(/\s+/g, '-')
-        })
+        body: JSON.stringify(profile)
       });
       
       if (response.ok) {
@@ -28,13 +33,120 @@ export default function Editor() {
     }
   };
 
-  const updateSensitivity = (id, field, value) => {
+  const toggleSensitivity = (option) => {
+    setProfile(prev => {
+      const hasSensitivity = prev.sensitivities.some(s => s.icon === option.id);
+      
+      if (hasSensitivity) {
+        return {
+          ...prev,
+          sensitivities: prev.sensitivities.filter(s => s.icon !== option.id)
+        };
+      } else {
+        return {
+          ...prev,
+          sensitivities: [
+            ...prev.sensitivities,
+            {
+              icon: option.id,
+              title: option.label,
+              description: option.defaultDescription || ""
+            }
+          ]
+        };
+      }
+    });
+  };
+
+  const toggleSupport = (option) => {
+    setProfile(prev => {
+      const hasSupport = prev.supports.some(s => s.icon === option.icon);
+      
+      if (hasSupport) {
+        return {
+          ...prev,
+          supports: prev.supports.filter(s => s.icon !== option.icon)
+        };
+      } else {
+        return {
+          ...prev,
+          supports: [
+            ...prev.supports,
+            {
+              icon: option.icon,
+              title: option.label,
+              description: option.defaultDescription || ""
+            }
+          ]
+        };
+      }
+    });
+  };
+
+  const updateSensitivityDescription = (id, value) => {
     setProfile(prev => ({
       ...prev,
       sensitivities: prev.sensitivities.map(item => 
-        item.icon === id ? { ...item, [field]: value } : item
+        item.icon === id ? { ...item, description: value } : item
       )
     }));
+  };
+
+  const updateSupportDescription = (icon, value) => {
+    setProfile(prev => ({
+      ...prev,
+      supports: prev.supports.map(item => 
+        item.icon === icon ? { ...item, description: value } : item
+      )
+    }));
+  };
+
+  const updateEmergencyContact = (field, value) => {
+    setProfile(prev => ({
+      ...prev,
+      emergency: {
+        ...prev.emergency,
+        [field]: value
+      }
+    }));
+  };
+
+  const updateEmergencyInstruction = (index, value) => {
+    setProfile(prev => {
+      const newInstructions = [...prev.emergency.instructions];
+      newInstructions[index] = value;
+      return {
+        ...prev,
+        emergency: {
+          ...prev.emergency,
+          instructions: newInstructions
+        }
+      };
+    });
+  };
+
+  const addEmergencyInstruction = () => {
+    setProfile(prev => ({
+      ...prev,
+      emergency: {
+        ...prev.emergency,
+        instructions: [...prev.emergency.instructions, ""]
+      }
+    }));
+  };
+
+  const removeEmergencyInstruction = (index) => {
+    setProfile(prev => {
+      const newInstructions = [...prev.emergency.instructions];
+      newInstructions.splice(index, 1);
+      return {
+        ...prev,
+        emergency: {
+          ...prev.emergency,
+          instructions: newInstructions
+        }
+      };
+    });
   };
 
   return (
@@ -42,11 +154,11 @@ export default function Editor() {
       <Header />
       
       <form onSubmit={handleSave}>
-        {/* Basic Info Section */}
+        {/* About You Section */}
         <section className="editor-section">
           <h2>About You</h2>
           <div className="form-group">
-            <label>Full Name</label>
+            <label>Full Name *</label>
             <input
               value={profile.name}
               onChange={(e) => setProfile({...profile, name: e.target.value})}
@@ -55,7 +167,7 @@ export default function Editor() {
           </div>
           
           <div className="form-group">
-            <label>About You</label>
+            <label>About You *</label>
             <textarea
               value={profile.about}
               onChange={(e) => setProfile({...profile, about: e.target.value})}
@@ -84,40 +196,19 @@ export default function Editor() {
                   type="checkbox"
                   id={`sens-${option.id}`}
                   checked={profile.sensitivities.some(s => s.icon === option.id)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setProfile({
-                        ...profile,
-                        sensitivities: [
-                          ...profile.sensitivities,
-                          {
-                            icon: option.id,
-                            title: option.label,
-                            description: defaultProfile.sensitivities
-                              .find(s => s.icon === option.id)?.description || ""
-                          }
-                        ]
-                      });
-                    } else {
-                      setProfile({
-                        ...profile,
-                        sensitivities: profile.sensitivities.filter(
-                          s => s.icon !== option.id
-                        )
-                      });
-                    }
-                  }}
+                  onChange={() => toggleSensitivity(option)}
                 />
                 <label htmlFor={`sens-${option.id}`}>
-                  <img src={option.icon} alt="" />
+                  <img src={option.icon} alt="" className="sensitivity-icon" />
                   <span>{option.label}</span>
                 </label>
                 
                 {profile.sensitivities.some(s => s.icon === option.id) && (
                   <textarea
                     value={profile.sensitivities.find(s => s.icon === option.id)?.description || ""}
-                    onChange={(e) => updateSensitivity(option.id, 'description', e.target.value)}
+                    onChange={(e) => updateSensitivityDescription(option.id, e.target.value)}
                     placeholder="Describe your needs..."
+                    className="sensitivity-description"
                   />
                 )}
               </div>
@@ -135,29 +226,7 @@ export default function Editor() {
                   type="checkbox"
                   id={`supp-${option.id}`}
                   checked={profile.supports.some(s => s.icon === option.icon)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setProfile({
-                        ...profile,
-                        supports: [
-                          ...profile.supports,
-                          {
-                            icon: option.icon,
-                            title: option.label,
-                            description: defaultProfile.supports
-                              .find(s => s.icon === option.icon)?.description || ""
-                          }
-                        ]
-                      });
-                    } else {
-                      setProfile({
-                        ...profile,
-                        supports: profile.supports.filter(
-                          s => s.icon !== option.icon
-                        )
-                      });
-                    }
-                  }}
+                  onChange={() => toggleSupport(option)}
                 />
                 <label htmlFor={`supp-${option.id}`}>
                   <i className={`fas fa-${option.icon}`}></i>
@@ -167,17 +236,9 @@ export default function Editor() {
                 {profile.supports.some(s => s.icon === option.icon) && (
                   <textarea
                     value={profile.supports.find(s => s.icon === option.icon)?.description || ""}
-                    onChange={(e) => 
-                      setProfile({
-                        ...profile,
-                        supports: profile.supports.map(item => 
-                          item.icon === option.icon 
-                            ? { ...item, description: e.target.value } 
-                            : item
-                        )
-                      })
-                    }
+                    onChange={(e) => updateSupportDescription(option.icon, e.target.value)}
                     placeholder="How can others help?"
+                    className="support-description"
                   />
                 )}
               </div>
@@ -186,35 +247,54 @@ export default function Editor() {
         </section>
 
         {/* Emergency Info Section */}
-        <section className="editor-section">
+        <section className="editor-section emergency-section">
           <h2>Emergency Information</h2>
+          
           <div className="form-group">
-            <label>Emergency Contact Name</label>
+            <label>Emergency Contact Name *</label>
             <input
               value={profile.emergency.contactName}
-              onChange={(e) => setProfile({
-                ...profile,
-                emergency: {
-                  ...profile.emergency,
-                  contactName: e.target.value
-                }
-              })}
+              onChange={(e) => updateEmergencyContact('contactName', e.target.value)}
+              required
             />
           </div>
           
           <div className="form-group">
-            <label>Emergency Contact Number</label>
+            <label>Emergency Contact Number *</label>
             <input
               type="tel"
               value={profile.emergency.contactNumber}
-              onChange={(e) => setProfile({
-                ...profile,
-                emergency: {
-                  ...profile.emergency,
-                  contactNumber: e.target.value
-                }
-              })}
+              onChange={(e) => updateEmergencyContact('contactNumber', e.target.value)}
+              required
             />
+          </div>
+          
+          <div className="emergency-instructions">
+            <label>Emergency Instructions</label>
+            {profile.emergency.instructions.map((instruction, index) => (
+              <div key={index} className="instruction-item">
+                <input
+                  type="text"
+                  value={instruction}
+                  onChange={(e) => updateEmergencyInstruction(index, e.target.value)}
+                  placeholder="e.g., Remain calm and speak softly"
+                />
+                <button 
+                  type="button" 
+                  onClick={() => removeEmergencyInstruction(index)}
+                  className="remove-instruction"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button 
+              type="button" 
+              onClick={addEmergencyInstruction}
+              className="add-instruction"
+            >
+              + Add Instruction
+            </button>
           </div>
         </section>
 
