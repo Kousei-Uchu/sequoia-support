@@ -155,7 +155,7 @@ body {
 }
 
 .card-toggle:hover {
-  border-color: var(--sunflower-yellow);
+  border-color: var(--sunflower-purple);
 }
 
 .card-toggle input[type="checkbox"] {
@@ -219,7 +219,7 @@ body {
   height: 100px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid var(--sunflower-yellow);
+  border: 3px solid var(--sunflower-purple);
 }
 
 .profile-bio {
@@ -242,7 +242,7 @@ body {
   display: flex;
   gap: 1rem;
   align-items: flex-start;
-  border-top: 4px solid var(--sunflower-yellow);
+  border-top: 4px solid var(--sunflower-purple);
 }
 
 .sensitivity-icon {
@@ -264,7 +264,7 @@ body {
   display: flex;
   gap: 1.5rem;
   align-items: center;
-  border-left: 4px solid var(--sunflower-yellow);
+  border-left: 4px solid var(--sunflower-purple);
 }
 
 .support-icon {
