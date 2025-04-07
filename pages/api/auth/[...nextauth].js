@@ -1,4 +1,3 @@
-// pages/api/auth/[...nextauth].js
 import NextAuth from "next-auth"
 import GitHubProvider from "next-auth/providers/github"
 
@@ -32,5 +31,9 @@ export default NextAuth({
       }
       return session
     }
+  },
+  pages: {
+    signIn: '/auth/signin',
+    error: '/auth/error'
   }
 })
