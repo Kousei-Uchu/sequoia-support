@@ -1,46 +1,68 @@
 import { getSession } from 'next-auth/react';
 import { Octokit } from '@octokit/rest';
 
-const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+const octokit = new Octokit({ 
+  auth: process.env.GITHUB_TOKEN 
+});
 
 export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   const session = await getSession({ req });
   
   if (!session) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const profileData = {
-    ...req.body,
-    username: session.user.username, // Ensure GitHub username is used
-    lastUpdated: new Date().toISOString()
-  };
-
   try {
+    // Validate required fields
+    if (!req.body.name || !req.body.about) {
+      return res.status(400).json({ error: 'Name and about are required' });
+    }
+
+    const profileData = {
+      ...req.body,
+      username: session.user.username,
+      lastUpdated: new Date().toISOString()
+    };
+
+    const filePath = `profiles/${session.user.username}.json`;
+    const message = `Update profile for ${session.user.username}`;
+    const content = Buffer.from(JSON.stringify(profileData, null, 2)).toString('base64');
+
+    // Try to get existing file SHA
+    let sha = null;
+    try {
+      const { data } = await octokit.repos.getContent({
+        owner: process.env.GITHUB_REPO_OWNER,
+        repo: process.env.GITHUB_REPO_NAME,
+        path: filePath
+      });
+      sha = data.sha;
+    } catch (error) {
+      if (error.status !== 404) {
+        throw error;
+      }
+    }
+
+    // Create or update file
     await octokit.repos.createOrUpdateFileContents({
-      owner: process.env.GITHUB_DATA_REPO.split('/')[0],
-      repo: process.env.GITHUB_DATA_REPO.split('/')[1],
-      path: `profiles/${session.user.username}.json`,
-      message: `Update profile for ${session.user.username}`,
-      content: Buffer.from(JSON.stringify(profileData)).toString('base64'),
-      sha: await getFileSha(session.user.username)
+      owner: process.env.GITHUB_REPO_OWNER,
+      repo: process.env.GITHUB_REPO_NAME,
+      path: filePath,
+      message: message,
+      content: content,
+      sha: sha
     });
 
-    res.status(200).json({ success: true });
+    return res.status(200).json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-}
-
-async function getFileSha(username) {
-  try {
-    const { data } = await octokit.repos.getContent({
-      owner: process.env.GITHUB_DATA_REPO.split('/')[0],
-      repo: process.env.GITHUB_DATA_REPO.split('/')[1],
-      path: `profiles/${username}.json`
+    console.error('Error saving profile:', error);
+    return res.status(500).json({ 
+      error: error.message || 'Failed to save profile',
+      details: error.response?.data
     });
-    return data.sha;
-  } catch {
-    return null;
   }
 }
