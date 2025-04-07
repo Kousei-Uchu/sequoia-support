@@ -38,6 +38,7 @@ body {
 }
 
 /* Header Styles (updated to match your components) */
+/* styles/globals.css */
 .sunflower-header {
   background-color: var(--sunflower-dark);
   color: var(--header-text);
@@ -45,7 +46,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  margin: 0; /* Remove default margins */
 }
 
 .header-content {
@@ -53,7 +54,7 @@ body {
   align-items: center;
   justify-content: space-between;
   max-width: 1200px;
-  margin: 0 auto;
+  margin: 0 auto; /* Center with no extra space */
   padding: 0 2rem;
 }
 
