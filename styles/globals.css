@@ -1,35 +1,357 @@
-import { Octokit } from '@octokit/rest';
+/* Color Scheme */
+:root {
+  --sunflower-yellow: #FFDB00;
+  --sunflower-dark: #00984c;
+  --sunflower-light: #FFDB00;
+  --text-dark: #333333;
+  --text-light: #FFFFFF;
+  --header-text: #FFDB00;
+  --background-light: #F9F9F9;
+  --error-red: #e63946;
+  --success-green: #2a9d8f;
+}
 
-const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+/* Base Styles */
+body {
+  font-family: 'Open Sans', sans-serif;
+  line-height: 1.6;
+  color: var(--text-dark);
+  background-color: var(--background-light);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
 
-export default async function handler(req, res) {
-  try {
-    const { username } = req.body;
-    
-    const response = await octokit.repos.createOrUpdateFileContents({
-      owner: process.env.GITHUB_DATA_REPO.split('/')[0],
-      repo: process.env.GITHUB_DATA_REPO.split('/')[1],
-      path: `profiles/${username}.json`,
-      message: `Update profile for ${username}`,
-      content: Buffer.from(JSON.stringify(req.body)).toString('base64'),
-      sha: await getFileSha(username),
-    });
+#__next {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
 
-    res.status(200).json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  flex: 1;
+}
+
+h1, h2, h3, h4 {
+  color: var(--sunflower-dark);
+  margin-top: 0;
+}
+
+a {
+  color: var(--sunflower-dark);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: var(--sunflower-yellow);
+}
+
+/* Header Styles */
+.sunflower-header {
+  background-color: var(--sunflower-dark);
+  color: var(--header-text);
+  text-align: center;
+  padding: 2rem 0;
+  position: relative;
+}
+
+.sunflower-logo {
+  height: 80px;
+  margin-bottom: 1rem;
+  filter: brightness(0) invert(1);
+}
+
+.header-content {
+  position: relative;
+  z-index: 2;
+}
+
+.auth-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.auth-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--header-text);
+  border: 2px solid var(--header-text);
+  padding: 0.5rem 1rem;
+  border-radius: 50px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+}
+
+.auth-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--header-text);
+}
+
+/* Main Content Styles */
+.main-content {
+  flex: 1;
+  padding: 2rem 0;
+}
+
+/* Profile Sections */
+.profile-section, .editor-section {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.profile-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  align-items: center;
+}
+
+.profile-text {
+  flex: 1;
+  min-width: 300px;
+}
+
+.profile-image {
+  flex: 0 0 200px;
+}
+
+.profile-image img {
+  width: 100%;
+  border-radius: 50%;
+  border: 5px solid var(--sunflower-yellow);
+  aspect-ratio: 1/1;
+  object-fit: cover;
+}
+
+/* Form Elements */
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+.form-group textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+/* Cards & Grids */
+.sensitivity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.sensitivity-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+  border-top: 4px solid var(--sunflower-yellow);
+}
+
+.sensitivity-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+}
+
+.sensitivity-icon {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+  margin: 0 auto 1rem;
+  display: block;
+}
+
+/* Support Items */
+.support-list {
+  margin: 1.5rem 0;
+}
+
+.support-item {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 1rem;
+  border-left: 4px solid var(--sunflower-yellow);
+}
+
+.support-icon {
+  font-size: 1.5rem;
+  color: var(--sunflower-dark);
+  background: var(--sunflower-light);
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Buttons */
+.btn {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  background: var(--sunflower-dark);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.btn:hover {
+  background: #00703d;
+  transform: translateY(-2px);
+}
+
+.btn-secondary {
+  background: var(--sunflower-yellow);
+  color: var(--sunflower-dark);
+}
+
+.edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+/* Utility Classes */
+.text-center {
+  text-align: center;
+}
+
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mt-3 { margin-top: 1.5rem; }
+
+/* Footer */
+.sunflower-footer {
+  background: var(--sunflower-dark);
+  color: var(--header-text);
+  text-align: center;
+  padding: 2rem 0;
+  margin-top: auto;
+}
+
+.footer-logo {
+  height: 60px;
+  margin: 1rem 0;
+  filter: brightness(0) invert(1);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .profile-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .support-item {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .auth-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .container {
+    padding: 0 1rem;
   }
 }
 
-async function getFileSha(username) {
-  try {
-    const { data } = await octokit.repos.getContent({
-      owner: process.env.GITHUB_DATA_REPO.split('/')[0],
-      repo: process.env.GITHUB_DATA_REPO.split('/')[1],
-      path: `profiles/${username}.json`,
-    });
-    return data.sha;
-  } catch {
-    return null;
-  }
+/* Authentication States */
+.loading, .error, .success {
+  padding: 2rem;
+  text-align: center;
+  border-radius: 8px;
+  margin: 2rem 0;
+}
+
+.loading {
+  background: rgba(0, 152, 76, 0.1);
+}
+
+.error {
+  background: rgba(230, 57, 70, 0.1);
+  color: var(--error-red);
+}
+
+.success {
+  background: rgba(42, 157, 143, 0.1);
+  color: var(--success-green);
+}
+
+/* Editor Specific */
+.card-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.card-toggle input[type="checkbox"] {
+  display: none;
+}
+
+.card-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.card-toggle input[type="checkbox"]:checked + label {
+  background: rgba(255, 219, 0, 0.2);
 }
