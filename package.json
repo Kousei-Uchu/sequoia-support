@@ -1,0 +1,22 @@
+{
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "export": "next export"  // Only if you need static HTML export
+  },
+  "dependencies": {
+    "next": "^13.4.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@octokit/rest": "^19.0.7",
+    "next-auth": "^4.22.1",
+    "dotenv": "^16.0.3",
+    "buffer": "^6.0.3"
+  },
+  "devDependencies": {
+    "eslint": "^8.36.0",
+    "eslint-config-next": "^13.4.7"
+  }
+}
