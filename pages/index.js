@@ -6,7 +6,7 @@ export default function Home() {
   return (
     <div className="home-container">
       <Head>
-        <title>Sunflower Profiles</title>
+        <title>Sequoia Support Profiles</title>
         <meta name="description" content="Create and share your support profile" />
       </Head>
       
@@ -15,13 +15,13 @@ export default function Home() {
       <main className="home-main">
         <div className="hero-section">
           <img 
-            src="/sunflower_icon.png" 
-            alt="Sunflower Logo" 
+            src="/sequoia_icon.png" 
+            alt="Sequoia Logo" 
             className="hero-logo"
           />
-          <h1>Welcome to Sunflower Profiles</h1>
+          <h1>Welcome to Sequoia Profiles</h1>
           <p className="subtitle">
-            Create and share your support needs with a beautiful sunflower profile
+            Create and share your support needs with a beautiful sequoia profile
           </p>
           <Link href="/editor" legacyBehavior>
             <a className="btn btn-primary">
@@ -51,8 +51,8 @@ export default function Home() {
         </div>
       </main>
       
-      <footer className="sunflower-footer">
-        <p>© {new Date().getFullYear()} Sunflower Profiles</p>
+      <footer className="sequoia-footer">
+        <p>© {new Date().getFullYear()} Sequoia Profiles</p>
       </footer>
     </div>
   )
