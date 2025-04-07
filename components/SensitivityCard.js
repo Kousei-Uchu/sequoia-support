@@ -1,9 +1,13 @@
 export default function SensitivityCard({ icon, title, description }) {
   return (
     <div className="sensitivity-card">
-      <img src={`/icons/${icon}.png`} alt={title} className="sensitivity-icon" />
-      <h3>{title}</h3>
-      <p>{description}</p>
+      <div className="sensitivity-icon">
+        <img src={icon} alt={title} />
+      </div>
+      <div className="sensitivity-content">
+        <h3>{title}</h3>
+        {description && <p>{description}</p>}
+      </div>
     </div>
-  );
+  )
 }
