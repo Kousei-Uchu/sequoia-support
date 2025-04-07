@@ -12,14 +12,14 @@ export default function Header() {
 
   if (!mounted || status === 'loading') {
     return (
-      <header className="sunflower-header">
+      <header className="sequoia-header">
         <div className="header-content">
           <Link href="/" legacyBehavior>
             <a>
               <img
-                src="/sunflower_icon.png"
-                alt="Hidden Disabilities Sunflower"
-                className="sunflower-logo"
+                src="/sequoia-logo.png"
+                alt="Sequoia Support"
+                className="sequoia-logo"
               />
             </a>
           </Link>
@@ -33,14 +33,14 @@ export default function Header() {
   }
 
   return (
-    <header className="sunflower-header">
+    <header className="sequoia-header">
       <div className="header-content">
         <Link href="/" legacyBehavior>
           <a>
             <img
-              src="/sunflower_icon.png"
-              alt="Hidden Disabilities Sunflower"
-              className="sunflower-logo"
+              src="/sequoia_icon.png"
+              alt="Sequoia Support"
+              className="sequoia-logo"
             />
           </a>
         </Link>
