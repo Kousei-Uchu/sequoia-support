@@ -1,11 +1,11 @@
 /* Your existing color scheme and base styles */
 :root {
-  --sunflower-yellow: #FFDB00;
-  --sunflower-dark: #00984c;
+  --sunflower-purple: #AFA9E2;
+  --sunflower-dark: #847EC4;
   --sunflower-light: #FFDB00;
   --text-dark: #333333;
   --text-light: #FFFFFF;
-  --header-text: #FFDB00;
+  --header-text: #AFA9E2;
   --background-light: #F9F9F9;
   --error-red: #e63946;
   --success-green: #2a9d8f;
