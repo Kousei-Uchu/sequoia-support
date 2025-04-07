@@ -31,7 +31,7 @@ export default NextAuth({
         sameSite: 'lax',
         path: '/',
         secure: process.env.NODE_ENV === 'production',
-        domain: process.env.NODE_ENV === 'production' ? '.mydigitalsunflower.vercel.app' : undefined
+        domain: process.env.NODE_ENV === 'production' ? '.sequoiasupport.vercel.app' : undefined
       }
     }
   },
