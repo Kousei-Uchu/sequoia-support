@@ -6,10 +6,10 @@ import Header from '../components/Header';
 export default function Editor() {
   const [profile, setProfile] = useState({
     ...defaultProfile,
-    // Initialize with empty emergency contacts
     emergency: {
-      contactName: '',
-      contactNumber: '',
+      contacts: [
+        { name: '', number: '' }
+      ],
       instructions: []
     }
   });
@@ -22,7 +22,10 @@ export default function Editor() {
       const response = await fetch('/api/save-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile)
+        body: JSON.stringify({
+          ...profile,
+          username: profile.name.toLowerCase().replace(/\s+/g, '-')
+        })
       });
       
       if (response.ok) {
@@ -101,30 +104,49 @@ export default function Editor() {
     }));
   };
 
-  const updateEmergencyContact = (field, value) => {
+  // Emergency Contacts Functions
+  const addEmergencyContact = () => {
     setProfile(prev => ({
       ...prev,
       emergency: {
         ...prev.emergency,
-        [field]: value
+        contacts: [...prev.emergency.contacts, { name: '', number: '' }]
       }
     }));
   };
 
-  const updateEmergencyInstruction = (index, value) => {
+  const removeEmergencyContact = (index) => {
     setProfile(prev => {
-      const newInstructions = [...prev.emergency.instructions];
-      newInstructions[index] = value;
+      const newContacts = [...prev.emergency.contacts];
+      newContacts.splice(index, 1);
       return {
         ...prev,
         emergency: {
           ...prev.emergency,
-          instructions: newInstructions
+          contacts: newContacts
         }
       };
     });
   };
 
+  const updateEmergencyContact = (index, field, value) => {
+    setProfile(prev => {
+      const newContacts = [...prev.emergency.contacts];
+      newContacts[index] = {
+        ...newContacts[index],
+        [field]: value
+      };
+      return {
+        ...prev,
+        emergency: {
+          ...prev.emergency,
+          contacts: newContacts
+        }
+      };
+    });
+  };
+
+  // Emergency Instructions Functions
   const addEmergencyInstruction = () => {
     setProfile(prev => ({
       ...prev,
@@ -149,16 +171,30 @@ export default function Editor() {
     });
   };
 
+  const updateEmergencyInstruction = (index, value) => {
+    setProfile(prev => {
+      const newInstructions = [...prev.emergency.instructions];
+      newInstructions[index] = value;
+      return {
+        ...prev,
+        emergency: {
+          ...prev.emergency,
+          instructions: newInstructions
+        }
+      };
+    });
+  };
+
   return (
     <div className="editor-container">
       <Header />
       
       <form onSubmit={handleSave}>
-        {/* About You Section */}
+        {/* Basic Info Section */}
         <section className="editor-section">
           <h2>About You</h2>
           <div className="form-group">
-            <label>Full Name *</label>
+            <label>Full Name</label>
             <input
               value={profile.name}
               onChange={(e) => setProfile({...profile, name: e.target.value})}
@@ -167,7 +203,7 @@ export default function Editor() {
           </div>
           
           <div className="form-group">
-            <label>About You *</label>
+            <label>About You</label>
             <textarea
               value={profile.about}
               onChange={(e) => setProfile({...profile, about: e.target.value})}
@@ -247,30 +283,50 @@ export default function Editor() {
         </section>
 
         {/* Emergency Info Section */}
-        <section className="editor-section emergency-section">
+        <section className="editor-section">
           <h2>Emergency Information</h2>
           
-          <div className="form-group">
-            <label>Emergency Contact Name *</label>
-            <input
-              value={profile.emergency.contactName}
-              onChange={(e) => updateEmergencyContact('contactName', e.target.value)}
-              required
-            />
+          <div className="emergency-contacts">
+            <h3>Emergency Contacts</h3>
+            {profile.emergency.contacts.map((contact, index) => (
+              <div key={index} className="contact-group">
+                <div className="form-group">
+                  <label>Contact Name</label>
+                  <input
+                    value={contact.name}
+                    onChange={(e) => updateEmergencyContact(index, 'name', e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Contact Number</label>
+                  <input
+                    type="tel"
+                    value={contact.number}
+                    onChange={(e) => updateEmergencyContact(index, 'number', e.target.value)}
+                  />
+                </div>
+                {profile.emergency.contacts.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeEmergencyContact(index)}
+                    className="remove-contact"
+                  >
+                    Remove Contact
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addEmergencyContact}
+              className="add-contact"
+            >
+              + Add Another Contact
+            </button>
           </div>
-          
-          <div className="form-group">
-            <label>Emergency Contact Number *</label>
-            <input
-              type="tel"
-              value={profile.emergency.contactNumber}
-              onChange={(e) => updateEmergencyContact('contactNumber', e.target.value)}
-              required
-            />
-          </div>
-          
+
           <div className="emergency-instructions">
-            <label>Emergency Instructions</label>
+            <h3>Emergency Instructions</h3>
             {profile.emergency.instructions.map((instruction, index) => (
               <div key={index} className="instruction-item">
                 <input
@@ -279,8 +335,8 @@ export default function Editor() {
                   onChange={(e) => updateEmergencyInstruction(index, e.target.value)}
                   placeholder="e.g., Remain calm and speak softly"
                 />
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => removeEmergencyInstruction(index)}
                   className="remove-instruction"
                 >
@@ -288,8 +344,8 @@ export default function Editor() {
                 </button>
               </div>
             ))}
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={addEmergencyInstruction}
               className="add-instruction"
             >
