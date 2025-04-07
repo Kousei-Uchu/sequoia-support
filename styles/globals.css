@@ -1,8 +1,8 @@
 /* Your existing color scheme and base styles */
 :root {
-  --sunflower-purple: #AFA9E2;
-  --sunflower-dark: #847EC4;
-  --sunflower-light: #FFDB00;
+  --sequoia-purple: #AFA9E2;
+  --sequoia-dark: #847EC4;
+  --sequoia-light: #FFDB00;
   --text-dark: #333333;
   --text-light: #FFFFFF;
   --header-text: #AFA9E2;
@@ -39,8 +39,8 @@ body {
 
 /* Header Styles (updated to match your components) */
 /* styles/globals.css */
-.sunflower-header {
-  background-color: var(--sunflower-dark);
+.sequoia-header {
+  background-color: var(--sequoia-dark);
   color: var(--header-text);
   padding: 1rem 0;
   position: sticky;
@@ -58,7 +58,7 @@ body {
   padding: 0 2rem;
 }
 
-.sunflower-logo {
+.sequoia-logo {
   height: 50px;
   filter: brightness(0) invert(1);
 }
@@ -108,7 +108,7 @@ body {
 }
 
 .editor-section h2 {
-  color: var(--sunflower-dark);
+  color: var(--sequoia-dark);
   margin-bottom: 1.5rem;
 }
 
@@ -156,7 +156,7 @@ body {
 }
 
 .card-toggle:hover {
-  border-color: var(--sunflower-purple);
+  border-color: var(--sequoia-purple);
 }
 
 .card-toggle input[type="checkbox"] {
@@ -187,7 +187,7 @@ body {
 }
 
 .save-btn {
-  background: var(--sunflower-dark);
+  background: var(--sequoia-dark);
   color: white;
   border: none;
   padding: 0.75rem 2rem;
@@ -220,7 +220,7 @@ body {
   height: 100px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid var(--sunflower-purple);
+  border: 3px solid var(--sequoia-purple);
 }
 
 .profile-bio {
@@ -243,7 +243,7 @@ body {
   display: flex;
   gap: 1rem;
   align-items: flex-start;
-  border-top: 4px solid var(--sunflower-purple);
+  border-top: 4px solid var(--sequoia-purple);
 }
 
 .sensitivity-icon {
@@ -265,19 +265,19 @@ body {
   display: flex;
   gap: 1.5rem;
   align-items: center;
-  border-left: 4px solid var(--sunflower-purple);
+  border-left: 4px solid var(--sequoia-purple);
 }
 
 .support-icon {
   font-size: 1.5rem;
-  color: var(--sunflower-dark);
+  color: var(--sequoia-dark);
 }
 
 /* Loading and Error States */
 .loading {
   text-align: center;
   padding: 2rem;
-  color: var(--sunflower-dark);
+  color: var(--sequoia-dark);
 }
 
 .error {
@@ -351,12 +351,12 @@ body {
 
 .feature-icon {
   font-size: 2.5rem;
-  color: var(--sunflower-dark);
+  color: var(--sequoia-dark);
   margin-bottom: 1rem;
 }
 
 .btn-primary {
-  background: var(--sunflower-dark);
+  background: var(--sequoia-dark);
   color: white;
   padding: 0.75rem 2rem;
   font-size: 1.1rem;
