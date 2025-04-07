@@ -10,17 +10,17 @@ function EditProfileComponent() {
   const router = useRouter()
   const { username } = router.query
   const [profile, setProfile] = useState({
-    name: '',
-    about: '',
-    photo: '/images/default-avatar.png',
-    sensitivities: [],
-    supports: [],
-    emergency: {
-      contactName: '',
-      contactNumber: '',
-      instructions: []
-    }
-  })
+  name: session?.user?.name || '',
+  about: '',
+  photo: session?.user?.image || 'https://example.com',
+  sensitivities: [],
+  supports: [],
+  emergency: {
+    contactName: '',
+    contactNumber: '',
+    instructions: []
+  }
+})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -36,24 +36,28 @@ function EditProfileComponent() {
     }
 
     const loadProfile = async () => {
-      try {
-        const res = await fetch(`/api/get-profile?username=${username}`)
-        if (!res.ok) throw new Error('Failed to load profile')
-        const data = await res.json()
-        if (data) {
-          setProfile({
-            ...profile,
-            ...data,
-            sensitivities: data.sensitivities || [],
-            supports: data.supports || []
-          })
-        }
-      } catch (err) {
-        setError(err.message)
-      } finally {
-        setLoading(false)
+  try {
+    const res = await fetch(`/api/get-profile?username=${username}`)
+    if (!res.ok) throw new Error('Failed to load profile')
+    const data = await res.json()
+    setProfile({
+      name: data.name || session?.user?.name || '',
+      about: data.about || '',
+      photo: data.photo || session?.user?.image || 'https://example.com',
+      sensitivities: data.sensitivities || [],
+      supports: data.supports || [],
+      emergency: data.emergency || {
+        contactName: '',
+        contactNumber: '',
+        instructions: []
       }
-    }
+    })
+  } catch (err) {
+    setError(err.message)
+  } finally {
+    setLoading(false)
+  }
+}
 
     if (status === 'authenticated') loadProfile()
   }, [session, status, username])
