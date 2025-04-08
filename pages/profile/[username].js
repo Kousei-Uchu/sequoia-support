@@ -2,6 +2,7 @@ import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
 import Header from '../../components/Header';
 import SensitivityCard from '../../components/SensitivityCard';
+import { sensitivityOptions, supportOptions } from '../../lib/profile';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -29,6 +30,30 @@ export default function ProfilePage() {
     loadProfile();
   }, [username]);
 
+  // Map profile sensitivities to options
+  const getSensitivityOptions = () => {
+    if (!profile?.sensitivities) return [];
+    return profile.sensitivities.map(item => {
+      const option = sensitivityOptions.find(opt => opt.id === item.icon);
+      return {
+        ...item,
+        title: option?.label || item.title
+      };
+    });
+  };
+
+  // Map profile supports to options
+  const getSupportOptions = () => {
+    if (!profile?.supports) return [];
+    return profile.supports.map(item => {
+      const option = supportOptions.find(opt => opt.icon === item.icon);
+      return {
+        ...item,
+        title: option?.label || item.title
+      };
+    });
+  };
+
   if (loading) {
     return (
       <div className="profile-container">
@@ -46,6 +71,9 @@ export default function ProfilePage() {
       </div>
     );
   }
+
+  const sensitivities = getSensitivityOptions();
+  const supports = getSupportOptions();
 
   return (
     <div className="profile-container">
@@ -67,11 +95,11 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        {profile.sensitivities?.length > 0 && (
+        {sensitivities.length > 0 && (
           <section className="sensitivities-section">
             <h2><i className="fas fa-exclamation-triangle"></i> My Sensitivities</h2>
             <div className="sensitivity-grid">
-              {profile.sensitivities.map((item) => (
+              {sensitivities.map((item) => (
                 <SensitivityCard
                   key={item.icon}
                   icon={item.icon}
@@ -83,11 +111,11 @@ export default function ProfilePage() {
           </section>
         )}
 
-        {profile.supports?.length > 0 && (
+        {supports.length > 0 && (
           <section className="supports-section">
             <h2><i className="fas fa-hands-helping"></i> Support Needs</h2>
             <div className="support-list">
-              {profile.supports.map((item) => (
+              {supports.map((item) => (
                 <div key={item.icon} className="support-item">
                   <div className="support-icon">
                     {item.icon.startsWith('http') ? (
