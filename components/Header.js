@@ -5,14 +5,25 @@ import { useEffect, useState } from 'react'
 export default function Header() {
   const { data: session, status } = useSession()
   const [mounted, setMounted] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
     setMounted(true)
-  }, [])
+    
+    const handleScroll = () => {
+      const isScrolled = window.scrollY > 10
+      if (isScrolled !== scrolled) {
+        setScrolled(isScrolled)
+      }
+    }
+    
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [scrolled])
 
   if (!mounted || status === 'loading') {
     return (
-      <header className="sequoia-header">
+      <header className={`sequoia-header ${scrolled ? 'scrolled' : ''}`}>
         <div className="header-content">
           <Link href="/" legacyBehavior>
             <a>
@@ -33,41 +44,43 @@ export default function Header() {
   }
 
   return (
-    <header className="sequoia-header">
+    <header className={`sequoia-header ${scrolled ? 'scrolled' : ''}`}>
       <div className="header-content">
         <Link href="/" legacyBehavior>
-          <a>
+          <a className="logo-link">
             <img
               src="/sequoia_icon.png"
               alt="Sequoia Support"
               className="sequoia-logo"
             />
+            <div className="header-text-container">
+              <h1 className="header-text">Sequoia Support</h1>
+              <p className="tagline">Supporting hidden disabilities</p>
+            </div>
           </a>
         </Link>
-        
-        <h1 className="header-text">Sequoia Support</h1>
-        <p className="tagline">Supporting hidden disabilities</p>
         
         <div className="auth-actions">
           {session ? (
             <>
               <Link href={`/profile/${session.user.username}`} legacyBehavior>
-                <a className="auth-btn">
+                <a className="auth-btn profile-btn">
                   <img
                     src={session.user.image}
                     alt="User Avatar"
                     className="user-avatar"
                   />
-                  My Profile
+                  <span className="btn-text">My Profile</span>
                 </a>
               </Link>
-              <button onClick={() => signOut()} className="auth-btn">
-                Sign Out
+              <button onClick={() => signOut()} className="auth-btn signout-btn">
+                <span className="btn-text">Sign Out</span>
               </button>
             </>
           ) : (
-            <button onClick={() => signIn('github')} className="auth-btn">
-              <i className="fab fa-github"></i> Sign In with GitHub
+            <button onClick={() => signIn('github')} className="auth-btn signin-btn">
+              <i className="fab fa-github"></i>
+              <span className="btn-text">Sign In</span>
             </button>
           )}
         </div>
