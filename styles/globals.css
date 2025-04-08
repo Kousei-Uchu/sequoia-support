@@ -42,12 +42,10 @@ body {
   background-color: var(--sequoia-mint);
   color: var(--text-light);
   position: sticky;
-  top: -1px; /* Prevents the bouncing effect */
+  top: 0;
   z-index: 100;
   box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  transition: all 0.3s ease;
-  padding: 1rem 0;
-  margin-top: 0; /* Ensures no space at the top */
+  padding: 1rem 0; /* Fixed padding that won't change */
 }
 
 .sequoia-header.scrolled {
@@ -62,7 +60,7 @@ body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 2rem;
-  transition: all 0.3s ease;
+  height: 60px; /* Fixed height */
 }
 
 .logo-link {
@@ -74,9 +72,8 @@ body {
 }
 
 .sequoia-logo {
-  height: 50px;
+  height: 40px; /* Fixed size */
   filter: brightness(0) invert(1);
-  transition: all 0.3s ease;
 }
 
 .scrolled .sequoia-logo {
@@ -645,10 +642,9 @@ body {
   }
   
   .header-content {
-    flex-direction: column;
-    padding: 1rem;
-    gap: 1rem;
-    align-items: stretch;
+    height: auto; /* Allow natural height on mobile */
+    padding: 0.5rem 1rem;
+    flex-wrap: wrap;
   }
   
   .logo-link {
@@ -662,6 +658,7 @@ body {
   .auth-actions {
     width: 100%;
     justify-content: space-between;
+    margin-top: 0.5rem;
   }
   
   .auth-btn {
@@ -670,7 +667,7 @@ body {
   }
   
   .btn-text {
-    display: none;
+    display: none; /* Hide text on mobile */
   }
   
   .profile-btn .user-avatar {
@@ -678,7 +675,7 @@ body {
   }
   
   .sequoia-logo {
-    height: 40px;
+    height: 35px; /* Slightly smaller on mobile */
   }
   
   .header-text {
