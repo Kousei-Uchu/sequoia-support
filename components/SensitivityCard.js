@@ -8,7 +8,7 @@ export default function SensitivityCard({ icon, title, description }) {
       <div className="sensitivity-header">
         {isLocalIcon ? (
           <img 
-            src={`/icons/${icon}`} 
+            src={`/icons/${icon}.png`} 
             alt={title} 
             className="sensitivity-icon" 
             onError={(e) => {
