@@ -6,21 +6,7 @@ export default function SensitivityCard({ icon, title, description }) {
   return (
     <div className="sensitivity-card">
       <div className="sensitivity-header">
-        {isLocalIcon ? (
-          <img 
-            src={`${icon}`} 
-            alt={title} 
-            className="sensitivity-icon" 
-            onError={(e) => {
-              e.target.style.display = 'none';
-              console.error('Failed to load icon:', icon);
-            }}
-          />
-        ) : isFontAwesome ? (
-          <i className={`fas ${icon} sensitivity-icon`} />
-        ) : (
           <img src={icon} alt={title} className="sensitivity-icon" />
-        )}
         <h3 className="sensitivity-title">{title}</h3>
       </div>
       {description && (
