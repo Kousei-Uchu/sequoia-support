@@ -17,9 +17,9 @@ export default function Header() {
       }
     }
     
-//    window.addEventListener('scroll', handleScroll)
-//    return () => window.removeEventListener('scroll', handleScroll)
-//  }, [scrolled])
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [scrolled])
 
   if (!mounted || status === 'loading') {
     return (
