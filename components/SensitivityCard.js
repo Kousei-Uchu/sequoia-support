@@ -1,13 +1,25 @@
 export default function SensitivityCard({ icon, title, description }) {
-  const isFontAwesome = !icon.startsWith('http');
+  // Check if icon is a Font Awesome class or a local file
+  const isFontAwesome = icon.startsWith('fa-');
+  const isLocalIcon = !isFontAwesome && !icon.startsWith('http');
   
   return (
     <div className="sensitivity-card">
       <div className="sensitivity-header">
-        {isFontAwesome ? (
-          <i className={`fas fa-${icon} sensitivity-icon`} />
+        {isLocalIcon ? (
+          <img 
+            src={`/icons/${icon}`} 
+            alt={title} 
+            className="sensitivity-icon" 
+            onError={(e) => {
+              e.target.style.display = 'none';
+              console.error('Failed to load icon:', icon);
+            }}
+          />
+        ) : isFontAwesome ? (
+          <i className={`fas ${icon} sensitivity-icon`} />
         ) : (
-          <img src={icon} alt="" className="sensitivity-icon" />
+          <img src={icon} alt={title} className="sensitivity-icon" />
         )}
         <h3 className="sensitivity-title">{title}</h3>
       </div>
