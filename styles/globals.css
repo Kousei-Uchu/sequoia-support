@@ -194,7 +194,6 @@ body {
 .support-description {
   width: 90%%;
   padding: 0.75rem;
-  border: 1px solid #eee;
   border-radius: 4px;
   margin-top: 0.5rem;
   transition: border-color 0.3s;
