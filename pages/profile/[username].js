@@ -30,26 +30,28 @@ export default function ProfilePage() {
     loadProfile();
   }, [username]);
 
-  // Map profile sensitivities to options
-  const getSensitivityOptions = () => {
+  // Get full sensitivity data including icons
+  const getSensitivities = () => {
     if (!profile?.sensitivities) return [];
     return profile.sensitivities.map(item => {
       const option = sensitivityOptions.find(opt => opt.id === item.icon);
       return {
-        ...item,
-        title: option?.label || item.title
+        icon: option?.icon || item.icon, // Use option icon if available, otherwise fall back
+        title: item.title || option?.label, // Use item title if available, otherwise option label
+        description: item.description
       };
     });
   };
 
-  // Map profile supports to options
-  const getSupportOptions = () => {
+  // Get full support data including icons
+  const getSupports = () => {
     if (!profile?.supports) return [];
     return profile.supports.map(item => {
       const option = supportOptions.find(opt => opt.icon === item.icon);
       return {
-        ...item,
-        title: option?.label || item.title
+        icon: item.icon, // Keep original icon
+        title: item.title || option?.label, // Use item title if available, otherwise option label
+        description: item.description
       };
     });
   };
@@ -72,8 +74,8 @@ export default function ProfilePage() {
     );
   }
 
-  const sensitivities = getSensitivityOptions();
-  const supports = getSupportOptions();
+  const sensitivities = getSensitivities();
+  const supports = getSupports();
 
   return (
     <div className="profile-container">
