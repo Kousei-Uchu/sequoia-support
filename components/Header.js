@@ -5,25 +5,14 @@ import { useEffect, useState } from 'react'
 export default function Header() {
   const { data: session, status } = useSession()
   const [mounted, setMounted] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
     setMounted(true)
-    
-    const handleScroll = () => {
-      const isScrolled = window.scrollY > 10
-      if (isScrolled !== scrolled) {
-        setScrolled(isScrolled)
-      }
-    }
-    
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [scrolled])
+  }, [])
 
   if (!mounted || status === 'loading') {
     return (
-      <header className={`sequoia-header ${scrolled ? 'scrolled' : ''}`}>
+      <header className="sequoia-header">
         <div className="header-content">
           <Link href="/" legacyBehavior>
             <a>
@@ -44,7 +33,7 @@ export default function Header() {
   }
 
   return (
-    <header className={`sequoia-header ${scrolled ? 'scrolled' : ''}`}>
+    <header className="sequoia-header">
       <div className="header-content">
         <Link href="/" legacyBehavior>
           <a className="logo-link">
