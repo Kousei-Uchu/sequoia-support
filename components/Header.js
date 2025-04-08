@@ -45,8 +45,8 @@ export default function Header() {
           </a>
         </Link>
         
-        <h1 className="header-text">My Support Needs</h1>
-        <p className="tagline">Understanding my hidden disabilities</p>
+        <h1 className="header-text">Sequoia Support</h1>
+        <p className="tagline">Supporting hidden disabilities</p>
         
         <div className="auth-actions">
           {session ? (
