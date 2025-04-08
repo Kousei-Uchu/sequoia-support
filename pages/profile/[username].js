@@ -2,6 +2,7 @@ import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
 import Header from '../../components/Header';
 import SensitivityCard from '../../components/SensitivityCard';
+import { sensitivityOptions, supportOptions } from '../../lib/profile';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -47,6 +48,27 @@ export default function ProfilePage() {
     );
   }
 
+  // Get full option details for each sensitivity/support in the profile
+  const profileSensitivities = sensitivityOptions.filter(option => 
+    profile.sensitivities?.some(s => s.icon === option.id)
+    .map(option => {
+      const profileData = profile.sensitivities.find(s => s.icon === option.id);
+      return {
+        ...option,
+        description: profileData?.description || option.defaultDescription || ""
+      };
+    });
+
+  const profileSupports = supportOptions.filter(option => 
+    profile.supports?.some(s => s.icon === option.icon)
+    .map(option => {
+      const profileData = profile.supports.find(s => s.icon === option.icon);
+      return {
+        ...option,
+        description: profileData?.description || option.defaultDescription || ""
+      };
+    });
+
   return (
     <div className="profile-container">
       <Header />
@@ -67,38 +89,38 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        {profile.sensitivities?.length > 0 && (
+        {profileSensitivities.length > 0 && (
           <section className="sensitivities-section">
             <h2><i className="fas fa-exclamation-triangle"></i> My Sensitivities</h2>
             <div className="sensitivity-grid">
-              {profile.sensitivities.map((item) => (
+              {profileSensitivities.map((option) => (
                 <SensitivityCard
-                  key={item.icon}
-                  icon={item.icon}
-                  title={item.title}
-                  description={item.description}
+                  key={option.id}
+                  icon={option.icon}
+                  title={option.label}
+                  description={option.description}
                 />
               ))}
             </div>
           </section>
         )}
 
-        {profile.supports?.length > 0 && (
+        {profileSupports.length > 0 && (
           <section className="supports-section">
             <h2><i className="fas fa-hands-helping"></i> Support Needs</h2>
             <div className="support-list">
-              {profile.supports.map((item) => (
-                <div key={item.icon} className="support-item">
+              {profileSupports.map((option) => (
+                <div key={option.icon} className="support-item">
                   <div className="support-icon">
-                    {item.icon.startsWith('http') ? (
-                      <img src={item.icon} alt={item.title} className="support-img" />
+                    {option.icon.startsWith('http') ? (
+                      <img src={option.icon} alt={option.label} className="support-img" />
                     ) : (
-                      <i className={`fas fa-${item.icon}`}></i>
+                      <i className={`fas fa-${option.icon}`}></i>
                     )}
                   </div>
                   <div className="support-text">
-                    <h3>{item.title}</h3>
-                    {item.description && <p>{item.description}</p>}
+                    <h3>{option.label}</h3>
+                    {option.description && <p>{option.description}</p>}
                   </div>
                 </div>
               ))}
