@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { defaultProfile, sensitivityOptions, supportOptions } from '../lib/profile';
 import Header from '../components/Header';
@@ -13,6 +13,9 @@ export default function Editor() {
       instructions: []
     }
   });
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
+  const fileInputRef = useRef(null);
   const router = useRouter();
 
   const handleSave = async (e) => {
@@ -34,6 +37,55 @@ export default function Editor() {
     } catch (error) {
       console.error("Save failed:", error);
     }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type and size
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    const maxSize = 2 * 1024 * 1024; // 2MB
+
+    if (!validTypes.includes(file.type)) {
+      setUploadError('Please upload a valid image file (JPEG, PNG, GIF, or WEBP)');
+      return;
+    }
+
+    if (file.size > maxSize) {
+      setUploadError('File size too large (max 2MB)');
+      return;
+    }
+
+    setUploading(true);
+    setUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'sequoia_uploads'); // Replace with your upload preset
+
+      const response = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      setProfile({ ...profile, photo: data.secure_url });
+    } catch (error) {
+      console.error('Upload error:', error);
+      setUploadError('Failed to upload image. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current.click();
   };
 
   const toggleSensitivity = (option) => {
@@ -104,7 +156,6 @@ export default function Editor() {
     }));
   };
 
-  // Emergency Contacts Functions
   const addEmergencyContact = () => {
     setProfile(prev => ({
       ...prev,
@@ -146,7 +197,6 @@ export default function Editor() {
     });
   };
 
-  // Emergency Instructions Functions
   const addEmergencyInstruction = () => {
     setProfile(prev => ({
       ...prev,
@@ -212,13 +262,35 @@ export default function Editor() {
           </div>
           
           <div className="form-group">
-            <label>Profile Photo URL</label>
-            <input
-              type="url"
-              value={profile.photo}
-              onChange={(e) => setProfile({...profile, photo: e.target.value})}
-              placeholder="/images/default-avatar.png"
-            />
+            <label>Profile Photo</label>
+            <div className="photo-upload-container">
+              {profile.photo && (
+                <img 
+                  src={profile.photo} 
+                  alt="Preview" 
+                  className="photo-preview"
+                />
+              )}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept="image/*"
+                style={{ display: 'none' }}
+              />
+              <button
+                type="button"
+                onClick={triggerFileInput}
+                className="upload-btn"
+                disabled={uploading}
+              >
+                {uploading ? 'Uploading...' : 'Upload Photo'}
+              </button>
+              {uploadError && <div className="upload-error">{uploadError}</div>}
+              {!profile.photo && (
+                <p className="upload-hint">Max file size: 2MB (JPEG, PNG, GIF, WEBP)</p>
+              )}
+            </div>
           </div>
         </section>
 
