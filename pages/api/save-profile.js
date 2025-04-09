@@ -4,11 +4,11 @@ import CryptoJS from 'crypto-js'
 
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN })
 
-function generateUserKey(username: string): string {
+function generateUserKey(username) {
   return CryptoJS.SHA256(username + '-sequoia').toString()
 }
 
-function encryptData(data: any, key: string): string {
+function encryptData(data, key) {
   return CryptoJS.AES.encrypt(JSON.stringify(data), key).toString()
 }
 
