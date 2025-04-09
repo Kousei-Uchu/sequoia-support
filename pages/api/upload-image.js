@@ -1,7 +1,6 @@
 import { Octokit } from "@octokit/rest";
 import formidable from 'formidable';
 import fs from 'fs';
-import path from 'path';
 
 export const config = {
   api: {
@@ -27,8 +26,10 @@ export default async function handler(req, res) {
 
     const file = files.file;
     const username = fields.username;
-    const fileExt = file.originalFilename.split('.').pop();
-    const fileName = `profile-${username}-${Date.now()}.${fileExt}`;
+    
+    // Always save as PNG for consistency
+    const fileName = `${username}.png`;
+    const filePath = `pictures/${fileName}`;
 
     // Read the file
     const fileData = fs.readFileSync(file.filepath);
@@ -39,25 +40,46 @@ export default async function handler(req, res) {
       auth: process.env.GITHUB_TOKEN
     });
 
-    // Upload to GitHub
-    const response = await octokit.repos.createOrUpdateFileContents({
-      owner: process.env.GITHUB_REPO_OWNER,
-      repo: process.env.GITHUB_REPO_NAME,
-      path: `public/uploads/${fileName}`,
-      message: `Upload profile image for ${username}`,
-      content: fileContent,
-      branch: 'main'
-    });
+    try {
+      // Check if file exists first to get the SHA for update
+      let sha;
+      try {
+        const existingFile = await octokit.repos.getContent({
+          owner: process.env.GITHUB_REPO_OWNER,
+          repo: process.env.GITHUB_REPO_NAME,
+          path: filePath,
+          branch: 'main'
+        });
+        sha = existingFile.data.sha;
+      } catch (error) {
+        // File doesn't exist yet, sha will remain undefined
+        if (error.status !== 404) throw error;
+      }
 
-    // Clean up temporary file
-    fs.unlinkSync(file.filepath);
+      // Upload to GitHub
+      const response = await octokit.repos.createOrUpdateFileContents({
+        owner: process.env.GITHUB_REPO_OWNER,
+        repo: process.env.GITHUB_REPO_NAME,
+        path: filePath,
+        message: `Update profile image for ${username}`,
+        content: fileContent,
+        branch: 'main',
+        sha: sha // Will be undefined for new files
+      });
 
-    // Return the raw GitHub URL
-    const imageUrl = `https://raw.githubusercontent.com/${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}/main/public/uploads/${fileName}`;
+      // Clean up temporary file
+      fs.unlinkSync(file.filepath);
 
-    res.status(200).json({ imageUrl });
+      // Return the raw GitHub URL
+      const imageUrl = `https://raw.githubusercontent.com/${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}/main/${filePath}`;
+
+      res.status(200).json({ imageUrl });
+    } catch (error) {
+      console.error('GitHub API error:', error);
+      throw error;
+    }
   } catch (error) {
     console.error('Upload error:', error);
-    res.status(500).json({ message: 'Upload failed' });
+    res.status(500).json({ message: 'Upload failed', error: error.message });
   }
 }
