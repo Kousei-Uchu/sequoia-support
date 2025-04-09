@@ -10,8 +10,18 @@ Enough about me, now onto the app.
 Sequoia Support Profiles is a web application designed to make it easier for you to share your sensitivities and support plans with anyone you wish!
 Unfortunately, you currently need access to have a Github account to create a profile. Eventually this will be improved upon, but for now, this is a limitation I have.
 
-## Security
-Your data is accessible by anyone on the internet, if they know your Github Username, other auth methods will come down the line. Your data is stored on a Github Repo, and the only way anyone can mass-access data is if they have my account, or have my API access key. For being accessible easily if you are in strife, this is as secure as I can get it with my current knowledge.
+## Security & Privacy
+What Sequoia Profiles collects:
+- Only data you enter and choose is collected. The site will not collect any further information.
+
+How your data is handled:
+- All data is encrypted before being saved to a secure, private GitHub repository.
+- Only the project maintainers (myself) can access stored files.
+- Encryption is handled per-user using a key derived from your GitHub username.
+- Your data is never shared or sold, and is never used or read.
+- You can request your data be deleted by contacting the project maintainers.
+
+By using Sequoia Support, you consent to this data handling process.
 
 ## Issue Reports, Suggestions, Questions
 If you have a suggestion, need to report an issue, have any questions, or things like that, you can open an issue in the 'Issues' tab.
