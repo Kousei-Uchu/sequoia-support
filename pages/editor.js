@@ -111,7 +111,7 @@ export default function Editor() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('/api/upload', {
+      const response = await fetch('/api/upload-image', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.accessToken}`
