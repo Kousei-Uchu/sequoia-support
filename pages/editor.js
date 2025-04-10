@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
 import { defaultProfile, sensitivityOptions, supportOptions } from '../lib/profile';
@@ -6,31 +6,60 @@ import Header from '../components/Header';
 
 export default function Editor() {
   const { data: session, status } = useSession();
+  const router = useRouter();
+  const fileInputRef = useRef(null);
+
+  // Initialize profile state
   const [profile, setProfile] = useState({
     ...defaultProfile,
     emergency: {
-      contacts: [
-        { name: '', number: '' }
-      ],
+      contacts: [{ name: '', number: '' }],
       instructions: []
     }
   });
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const [saveError, setSaveError] = useState(null);
-  const fileInputRef = useRef(null);
-  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
 
   // Redirect if not authenticated
-  if (status === 'unauthenticated') {
-    router.push('/auth/signin');
-    return null;
-  }
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin');
+    } else if (status === 'authenticated') {
+      loadProfile();
+    }
+  }, [status, router]);
 
+  // Load existing profile data
+  const loadProfile = async () => {
+    try {
+      const response = await fetch(`/api/get-profile?username=${session.user.username}`);
+      if (!response.ok) throw new Error('Failed to load profile');
+      
+      const data = await response.json();
+      setProfile(prev => ({
+        ...prev,
+        ...data,
+        photo: data.photo || session.user.image || '/default-avatar.png'
+      }));
+    } catch (error) {
+      console.error('Profile load error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle form submission
   const handleSave = async (e) => {
     e.preventDefault();
     setSaveError(null);
     
+    if (!session?.user?.username) {
+      setSaveError('User session not available');
+      return;
+    }
+
     try {
       const response = await fetch('/api/save-profile', {
         method: 'POST',
@@ -45,8 +74,8 @@ export default function Editor() {
       });
       
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to save profile');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save profile');
       }
 
       router.push(`/p/${session.user.username}`);
@@ -56,13 +85,18 @@ export default function Editor() {
     }
   };
 
+  // Handle file upload
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Reset previous errors
+    setUploadError(null);
+
     // Validate file
-    if (!file.type.startsWith('image/')) {
-      setUploadError('Only image files are allowed');
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setUploadError('Only JPEG, PNG, or WEBP images are allowed');
       return;
     }
 
@@ -72,13 +106,12 @@ export default function Editor() {
     }
 
     setUploading(true);
-    setUploadError(null);
 
     try {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('/api/upload-image', {
+      const response = await fetch('/api/upload', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.accessToken}`
@@ -87,8 +120,8 @@ export default function Editor() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Upload failed');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Upload failed');
       }
 
       const result = await response.json();
@@ -102,76 +135,57 @@ export default function Editor() {
     }
   };
 
-  const triggerFileInput = () => {
-    fileInputRef.current.click();
-  };
-
+  // Helper functions for profile sections
   const toggleSensitivity = (option) => {
     setProfile(prev => {
       const hasSensitivity = prev.sensitivities.some(s => s.icon === option.id);
-      
-      if (hasSensitivity) {
-        return {
-          ...prev,
-          sensitivities: prev.sensitivities.filter(s => s.icon !== option.id)
-        };
-      } else {
-        return {
-          ...prev,
-          sensitivities: [
-            ...prev.sensitivities,
-            {
+      return {
+        ...prev,
+        sensitivities: hasSensitivity
+          ? prev.sensitivities.filter(s => s.icon !== option.id)
+          : [...prev.sensitivities, {
               icon: option.id,
               title: option.label,
               description: option.defaultDescription || ""
-            }
-          ]
-        };
-      }
+            }]
+      };
     });
   };
 
   const toggleSupport = (option) => {
     setProfile(prev => {
       const hasSupport = prev.supports.some(s => s.icon === option.icon);
-      
-      if (hasSupport) {
-        return {
-          ...prev,
-          supports: prev.supports.filter(s => s.icon !== option.icon)
-        };
-      } else {
-        return {
-          ...prev,
-          supports: [
-            ...prev.supports,
-            {
+      return {
+        ...prev,
+        supports: hasSupport
+          ? prev.supports.filter(s => s.icon !== option.icon)
+          : [...prev.supports, {
               icon: option.icon,
               title: option.label,
               description: option.defaultDescription || ""
-            }
-          ]
-        };
-      }
+            }]
+      };
     });
   };
 
-  const updateSensitivityDescription = (id, value) => {
+  const updateDescription = (type, id, value) => {
     setProfile(prev => ({
       ...prev,
-      sensitivities: prev.sensitivities.map(item => 
+      [type]: prev[type].map(item => 
         item.icon === id ? { ...item, description: value } : item
       )
     }));
   };
 
-  const updateSupportDescription = (icon, value) => {
-    setProfile(prev => ({
-      ...prev,
-      supports: prev.supports.map(item => 
-        item.icon === icon ? { ...item, description: value } : item
-      )
-    }));
+  const updateEmergencyContacts = (index, field, value) => {
+    setProfile(prev => {
+      const newContacts = [...prev.emergency.contacts];
+      newContacts[index] = { ...newContacts[index], [field]: value };
+      return {
+        ...prev,
+        emergency: { ...prev.emergency, contacts: newContacts }
+      };
+    });
   };
 
   const addEmergencyContact = () => {
@@ -185,32 +199,22 @@ export default function Editor() {
   };
 
   const removeEmergencyContact = (index) => {
-    setProfile(prev => {
-      const newContacts = [...prev.emergency.contacts];
-      newContacts.splice(index, 1);
-      return {
-        ...prev,
-        emergency: {
-          ...prev.emergency,
-          contacts: newContacts
-        }
-      };
-    });
+    setProfile(prev => ({
+      ...prev,
+      emergency: {
+        ...prev.emergency,
+        contacts: prev.emergency.contacts.filter((_, i) => i !== index)
+      }
+    }));
   };
 
-  const updateEmergencyContact = (index, field, value) => {
+  const updateEmergencyInstructions = (index, value) => {
     setProfile(prev => {
-      const newContacts = [...prev.emergency.contacts];
-      newContacts[index] = {
-        ...newContacts[index],
-        [field]: value
-      };
+      const newInstructions = [...prev.emergency.instructions];
+      newInstructions[index] = value;
       return {
         ...prev,
-        emergency: {
-          ...prev.emergency,
-          contacts: newContacts
-        }
+        emergency: { ...prev.emergency, instructions: newInstructions }
       };
     });
   };
@@ -226,34 +230,16 @@ export default function Editor() {
   };
 
   const removeEmergencyInstruction = (index) => {
-    setProfile(prev => {
-      const newInstructions = [...prev.emergency.instructions];
-      newInstructions.splice(index, 1);
-      return {
-        ...prev,
-        emergency: {
-          ...prev.emergency,
-          instructions: newInstructions
-        }
-      };
-    });
+    setProfile(prev => ({
+      ...prev,
+      emergency: {
+        ...prev.emergency,
+        instructions: prev.emergency.instructions.filter((_, i) => i !== index)
+      }
+    }));
   };
 
-  const updateEmergencyInstruction = (index, value) => {
-    setProfile(prev => {
-      const newInstructions = [...prev.emergency.instructions];
-      newInstructions[index] = value;
-      return {
-        ...prev,
-        emergency: {
-          ...prev.emergency,
-          instructions: newInstructions
-        }
-      };
-    });
-  };
-
-  if (status === 'loading') {
+  if (status === 'loading' || isLoading) {
     return (
       <div className="editor-container">
         <Header />
@@ -267,17 +253,24 @@ export default function Editor() {
       <Header />
       
       <form onSubmit={handleSave}>
-        {saveError && <div className="error-message">{saveError}</div>}
+        {saveError && (
+          <div className="error-message">
+            <i className="fas fa-exclamation-circle"></i>
+            {saveError}
+          </div>
+        )}
 
-        {/* Basic Info Section */}
+        {/* About You Section */}
         <section className="editor-section">
           <h2>About You</h2>
+          
           <div className="form-group">
             <label>Full Name *</label>
             <input
               value={profile.name}
               onChange={(e) => setProfile({...profile, name: e.target.value})}
               required
+              minLength={2}
             />
           </div>
           
@@ -287,33 +280,34 @@ export default function Editor() {
               value={profile.about}
               onChange={(e) => setProfile({...profile, about: e.target.value})}
               required
+              minLength={10}
             />
           </div>
           
           <div className="form-group">
             <label>Profile Photo</label>
             <div className="photo-upload-container">
-              {profile.photo && (
-                <img 
-                  src={profile.photo} 
-                  alt="Profile preview" 
-                  className="photo-preview"
-                  onError={(e) => {
-                    e.target.src = '/default-avatar.png';
-                  }}
-                />
-              )}
+              <img 
+                src={profile.photo} 
+                alt="Profile" 
+                className="photo-preview"
+                onError={(e) => {
+                  e.target.src = '/default-avatar.png';
+                }}
+              />
+              
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileUpload}
-                accept="image/*"
+                accept="image/jpeg, image/png, image/webp"
                 style={{ display: 'none' }}
                 disabled={uploading}
               />
+              
               <button
                 type="button"
-                onClick={triggerFileInput}
+                onClick={() => fileInputRef.current.click()}
                 className="upload-btn"
                 disabled={uploading}
               >
@@ -326,17 +320,17 @@ export default function Editor() {
                   'Upload Photo'
                 )}
               </button>
+              
               {uploadError && (
                 <div className="upload-error">
                   <i className="fas fa-exclamation-circle"></i>
                   {uploadError}
                 </div>
               )}
-              {!profile.photo && (
-                <p className="upload-hint">
-                  Recommended size: 500x500px (JPEG, PNG, WEBP)
-                </p>
-              )}
+              
+              <p className="upload-hint">
+                Recommended: Square image (500x500px) in JPEG, PNG, or WEBP format (max 2MB)
+              </p>
             </div>
           </div>
         </section>
@@ -354,18 +348,14 @@ export default function Editor() {
                   onChange={() => toggleSensitivity(option)}
                 />
                 <label htmlFor={`sens-${option.id}`}>
-                  <img 
-                    src={option.icon} 
-                    alt={option.label} 
-                    className="sensitivity-icon" 
-                  />
+                  <img src={option.icon} alt="" className="sensitivity-icon" />
                   <span>{option.label}</span>
                 </label>
                 
                 {profile.sensitivities.some(s => s.icon === option.id) && (
                   <textarea
                     value={profile.sensitivities.find(s => s.icon === option.id)?.description || ""}
-                    onChange={(e) => updateSensitivityDescription(option.id, e.target.value)}
+                    onChange={(e) => updateDescription('sensitivities', option.id, e.target.value)}
                     placeholder="Describe your needs..."
                     className="sensitivity-description"
                   />
@@ -395,7 +385,7 @@ export default function Editor() {
                 {profile.supports.some(s => s.icon === option.icon) && (
                   <textarea
                     value={profile.supports.find(s => s.icon === option.icon)?.description || ""}
-                    onChange={(e) => updateSupportDescription(option.icon, e.target.value)}
+                    onChange={(e) => updateDescription('supports', option.icon, e.target.value)}
                     placeholder="How can others help?"
                     className="support-description"
                   />
@@ -405,7 +395,7 @@ export default function Editor() {
           </div>
         </section>
 
-        {/* Emergency Info Section */}
+        {/* Emergency Information Section */}
         <section className="editor-section">
           <h2>Emergency Information</h2>
           
@@ -417,7 +407,7 @@ export default function Editor() {
                   <label>Contact Name</label>
                   <input
                     value={contact.name}
-                    onChange={(e) => updateEmergencyContact(index, 'name', e.target.value)}
+                    onChange={(e) => updateEmergencyContacts(index, 'name', e.target.value)}
                   />
                 </div>
                 <div className="form-group">
@@ -425,7 +415,7 @@ export default function Editor() {
                   <input
                     type="tel"
                     value={contact.number}
-                    onChange={(e) => updateEmergencyContact(index, 'number', e.target.value)}
+                    onChange={(e) => updateEmergencyContacts(index, 'number', e.target.value)}
                   />
                 </div>
                 {profile.emergency.contacts.length > 1 && (
@@ -444,7 +434,7 @@ export default function Editor() {
               onClick={addEmergencyContact}
               className="add-contact"
             >
-              + Add Another Contact
+              + Add Contact
             </button>
           </div>
 
@@ -455,7 +445,7 @@ export default function Editor() {
                 <input
                   type="text"
                   value={instruction}
-                  onChange={(e) => updateEmergencyInstruction(index, e.target.value)}
+                  onChange={(e) => updateEmergencyInstructions(index, e.target.value)}
                   placeholder="e.g., Remain calm and speak softly"
                 />
                 <button
@@ -477,8 +467,12 @@ export default function Editor() {
           </div>
         </section>
 
-        <button type="submit" className="save-btn">
-          Save Profile
+        <button 
+          type="submit" 
+          className="save-btn"
+          disabled={uploading}
+        >
+          {uploading ? 'Saving...' : 'Save Profile'}
         </button>
       </form>
     </div>
