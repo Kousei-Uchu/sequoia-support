@@ -39,50 +39,34 @@ export default function Editor() {
     }
   };
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  // In your EditProfileComponent (frontend)
+const handleFileUpload = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
 
-    // Validate file type and size
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    const maxSize = 2 * 1024 * 1024; // 2MB
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.accessToken}` // Make sure you have this
+      },
+      body: formData
+    });
 
-    if (!validTypes.includes(file.type)) {
-      setUploadError('Please upload a valid image file (JPEG, PNG, GIF, or WEBP)');
-      return;
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Upload failed');
     }
 
-    if (file.size > maxSize) {
-      setUploadError('File size too large (max 2MB)');
-      return;
-    }
-
-    setUploading(true);
-    setUploadError(null);
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'sequoia_uploads'); // Replace with your upload preset
-
-      const response = await fetch('/api/upload-image', {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
-
-      const data = await response.json();
-      setProfile({ ...profile, photo: data.secure_url });
-    } catch (error) {
-      console.error('Upload error:', error);
-      setUploadError('Failed to upload image. Please try again.');
-    } finally {
-      setUploading(false);
-    }
-  };
+    const result = await response.json();
+    setProfile(prev => ({...prev, photo: result.imageUrl}));
+    return result;
+  } catch (error) {
+    console.error('Upload error:', error);
+    setError(error.message);
+    throw error;
+  }
+};
 
   const triggerFileInput = () => {
     fileInputRef.current.click();
