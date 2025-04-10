@@ -1,6 +1,7 @@
 import { Octokit } from "@octokit/rest";
 import formidable from 'formidable';
 import fs from 'fs';
+import { getToken } from 'next-auth/jwt';
 
 export const config = {
   api: {
@@ -15,21 +16,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get GitHub token from headers
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: 'Missing or invalid authorization header' });
+    // Get the authenticated user's token
+    const token = await getToken({ req });
+    if (!token) {
+      return res.status(401).json({ message: 'Not authenticated' });
     }
 
-    const userToken = authHeader.split(' ')[1];
-    const userOctokit = new Octokit({ auth: userToken });
-
-    // Verify the token and get username
-    const { data: user } = await userOctokit.users.getAuthenticated();
-    const username = user.login;
+    const username = token.username; // Using token.username instead of GitHub API
 
     // Parse the uploaded file
-    const form = new formidable.IncomingForm();
+    const form = formidable();
     const [_, files] = await new Promise((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
         if (err) reject(err);
@@ -37,9 +33,20 @@ export default async function handler(req, res) {
       });
     });
 
-    const file = files.file[0];
+    const file = files?.file?.[0];
     if (!file) {
       return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    // Validate file type and size
+    if (!file.mimetype.startsWith('image/')) {
+      fs.unlinkSync(file.filepath);
+      return res.status(400).json({ message: 'Only image files are allowed' });
+    }
+
+    if (file.size > 4 * 1024 * 1024) { // 4MB
+      fs.unlinkSync(file.filepath);
+      return res.status(400).json({ message: 'File too large (max 4MB)' });
     }
 
     const fileName = `${username}.png`;
@@ -48,13 +55,13 @@ export default async function handler(req, res) {
     const fileContent = fileData.toString('base64');
 
     // Use app token for repository access
-    const appOctokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+    const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
     try {
       // Check if file exists to get SHA for update
       let sha;
       try {
-        const { data } = await appOctokit.repos.getContent({
+        const { data } = await octokit.repos.getContent({
           owner: process.env.GITHUB_REPO_OWNER,
           repo: process.env.GITHUB_REPO_NAME,
           path: filePath,
@@ -66,7 +73,7 @@ export default async function handler(req, res) {
       }
 
       // Upload the file
-      await appOctokit.repos.createOrUpdateFileContents({
+      await octokit.repos.createOrUpdateFileContents({
         owner: process.env.GITHUB_REPO_OWNER,
         repo: process.env.GITHUB_REPO_NAME,
         path: filePath,
