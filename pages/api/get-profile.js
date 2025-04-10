@@ -32,31 +32,27 @@ export default async function handler(req, res) {
     const key = generateUserKey(username)
     const profile = decryptData(encrypted, key)
 
-    // Get GitHub user data for the profile picture
-    let githubProfile = {}
+    // Get image URL (fallback to GitHub avatar if not found)
+    let imageUrl = `https://raw.githubusercontent.com/${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}/main/pictures/${username}.png`;
+
+    // Verify the image exists
     try {
-      const { data } = await octokit.users.getByUsername({ username })
-      githubProfile = {
-        avatar_url: data.avatar_url,
-        html_url: data.html_url,
-        name: data.name,
-        bio: data.bio
-      }
+      await octokit.repos.getContent({
+        owner: process.env.GITHUB_REPO_OWNER,
+        repo: process.env.GITHUB_REPO_NAME,
+        path: `pictures/${username}.png`
+      });
     } catch (error) {
-      console.error('Failed to fetch GitHub profile:', error.message)
-      // Fallback to our uploaded image if GitHub profile fails
-      githubProfile.avatar_url = `https://raw.githubusercontent.com/${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}/main/pictures/${username}.png`
+      // If image doesn't exist, use GitHub avatar
+      const { data: githubUser } = await octokit.users.getByUsername({ username });
+      imageUrl = githubUser.avatar_url;
     }
 
-    // Combine both profile data
-    const response = {
+    return res.status(200).json({
       ...profile,
-      github: githubProfile,
-      // Maintain backward compatibility
-      imageUrl: githubProfile.avatar_url
-    }
-
-    return res.status(200).json(response)
+      imageUrl,
+      username
+    })
   } catch (error) {
     if (error.status === 404) {
       return res.status(404).json({ error: 'Profile not found' })
