@@ -313,6 +313,7 @@ export default function Editor() {
                 accept="image/jpeg, image/png, image/webp"
                 style={{ display: 'none' }}
                 disabled={uploading}
+                id="profile-upload-input"  // Added ID for better debugging
               />
               
               <button
