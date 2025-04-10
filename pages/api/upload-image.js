@@ -15,17 +15,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get GitHub token from cookies or headers
-    const authToken = req.headers.authorization?.split(' ')[1] || req.cookies['gh-token'];
-    
-    if (!authToken) {
-      return res.status(401).json({ message: 'Authentication required' });
+    // Get GitHub token from headers
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Missing or invalid authorization header' });
     }
 
-    const octokit = new Octokit({ auth: authToken });
+    const userToken = authHeader.split(' ')[1];
+    const userOctokit = new Octokit({ auth: userToken });
 
-    // Get authenticated user's info
-    const { data: user } = await octokit.users.getAuthenticated();
+    // Verify the token and get username
+    const { data: user } = await userOctokit.users.getAuthenticated();
     const username = user.login;
 
     // Parse the uploaded file
@@ -47,11 +47,14 @@ export default async function handler(req, res) {
     const fileData = fs.readFileSync(file.filepath);
     const fileContent = fileData.toString('base64');
 
+    // Use app token for repository access
+    const appOctokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+
     try {
       // Check if file exists to get SHA for update
       let sha;
       try {
-        const { data } = await octokit.repos.getContent({
+        const { data } = await appOctokit.repos.getContent({
           owner: process.env.GITHUB_REPO_OWNER,
           repo: process.env.GITHUB_REPO_NAME,
           path: filePath,
@@ -62,9 +65,7 @@ export default async function handler(req, res) {
         if (error.status !== 404) throw error;
       }
 
-      // Use the app's token for the actual upload (not user's token)
-      const appOctokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
-      
+      // Upload the file
       await appOctokit.repos.createOrUpdateFileContents({
         owner: process.env.GITHUB_REPO_OWNER,
         repo: process.env.GITHUB_REPO_NAME,
@@ -75,19 +76,32 @@ export default async function handler(req, res) {
         sha: sha
       });
 
+      // Clean up temporary file
       fs.unlinkSync(file.filepath);
 
       const imageUrl = `https://raw.githubusercontent.com/${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}/main/${filePath}`;
-      return res.status(200).json({ imageUrl });
+      return res.status(200).json({ 
+        success: true,
+        imageUrl,
+        username
+      });
     } catch (error) {
       console.error('GitHub API error:', error);
+      if (error.status === 401) {
+        return res.status(401).json({ 
+          message: 'Repository access denied',
+          error: 'Check your GITHUB_TOKEN permissions'
+        });
+      }
       throw error;
     }
   } catch (error) {
     console.error('Upload error:', error);
     return res.status(500).json({ 
+      success: false,
       message: 'Upload failed',
-      error: error.message 
+      error: error.message,
+      details: error.response?.data?.message || 'Unknown error'
     });
   }
 }
