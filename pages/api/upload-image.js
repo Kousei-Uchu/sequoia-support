@@ -5,110 +5,103 @@ import { getToken } from 'next-auth/jwt';
 
 export const config = {
   api: {
-    bodyParser: false,
+    bodyParser: false,  // Disable default body parsing
     sizeLimit: '4mb'
   }
 };
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    // Get the authenticated user's token
+    // Verify authentication
     const token = await getToken({ req });
-    if (!token) {
-      return res.status(401).json({ message: 'Not authenticated' });
+    if (!token?.username) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const username = token.username; // Using token.username instead of GitHub API
+    const username = token.username;
 
-    // Parse the uploaded file
-    const form = formidable();
-    const [_, files] = await new Promise((resolve, reject) => {
+    // Parse form data
+    const form = formidable({
+      multiples: false,
+      maxFileSize: 2 * 1024 * 1024, // 2MB
+      filter: ({ mimetype }) => {
+        return !!mimetype?.match(/^image\/(jpeg|png|webp)$/);
+      }
+    });
+
+    const [fields, files] = await new Promise((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
+        if (err) {
+          console.error('Form parse error:', err);
+          reject(err);
+          return;
+        }
         resolve([fields, files]);
       });
     });
 
+    console.log('Parsed files:', files);
+
     const file = files?.file?.[0];
     if (!file) {
-      return res.status(400).json({ message: 'No file uploaded' });
+      return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Validate file type and size
-    if (!file.mimetype.startsWith('image/')) {
-      fs.unlinkSync(file.filepath);
-      return res.status(400).json({ message: 'Only image files are allowed' });
+    // Verify file exists
+    if (!fs.existsSync(file.filepath)) {
+      return res.status(400).json({ error: 'File not found' });
     }
 
-    if (file.size > 4 * 1024 * 1024) { // 4MB
-      fs.unlinkSync(file.filepath);
-      return res.status(400).json({ message: 'File too large (max 4MB)' });
-    }
-
-    const fileName = `${username}.png`;
+    // Read file content
+    const fileContent = fs.readFileSync(file.filepath, { encoding: 'base64' });
+    const fileName = `${username}.${file.originalFilename.split('.').pop()}`;
     const filePath = `pictures/${fileName}`;
-    const fileData = fs.readFileSync(file.filepath);
-    const fileContent = fileData.toString('base64');
 
-    // Use app token for repository access
+    // Initialize GitHub client
     const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
+    // Check for existing file
+    let sha;
     try {
-      // Check if file exists to get SHA for update
-      let sha;
-      try {
-        const { data } = await octokit.repos.getContent({
-          owner: process.env.GITHUB_REPO_OWNER,
-          repo: process.env.GITHUB_REPO_NAME,
-          path: filePath,
-          branch: 'main'
-        });
-        sha = data.sha;
-      } catch (error) {
-        if (error.status !== 404) throw error;
-      }
-
-      // Upload the file
-      await octokit.repos.createOrUpdateFileContents({
+      const { data } = await octokit.repos.getContent({
         owner: process.env.GITHUB_REPO_OWNER,
         repo: process.env.GITHUB_REPO_NAME,
         path: filePath,
-        message: `Update profile image for ${username}`,
-        content: fileContent,
-        branch: 'main',
-        sha: sha
+        branch: 'main'
       });
-
-      // Clean up temporary file
-      fs.unlinkSync(file.filepath);
-
-      const imageUrl = `https://raw.githubusercontent.com/${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}/main/${filePath}`;
-      return res.status(200).json({ 
-        success: true,
-        imageUrl,
-        username
-      });
+      sha = data.sha;
     } catch (error) {
-      console.error('GitHub API error:', error);
-      if (error.status === 401) {
-        return res.status(401).json({ 
-          message: 'Repository access denied',
-          error: 'Check your GITHUB_TOKEN permissions'
-        });
-      }
-      throw error;
+      if (error.status !== 404) throw error;
     }
+
+    // Upload to GitHub
+    await octokit.repos.createOrUpdateFileContents({
+      owner: process.env.GITHUB_REPO_OWNER,
+      repo: process.env.GITHUB_REPO_NAME,
+      path: filePath,
+      message: `Update profile image for ${username}`,
+      content: fileContent,
+      branch: 'main',
+      sha: sha
+    });
+
+    // Clean up temp file
+    fs.unlinkSync(file.filepath);
+
+    return res.status(200).json({
+      success: true,
+      imageUrl: `https://raw.githubusercontent.com/${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}/main/${filePath}`
+    });
+
   } catch (error) {
     console.error('Upload error:', error);
-    return res.status(500).json({ 
-      success: false,
-      message: 'Upload failed',
-      error: error.message,
-      details: error.response?.data?.message || 'Unknown error'
+    return res.status(500).json({
+      error: error.message || 'Upload failed',
+      details: error.response?.data?.message
     });
   }
 }
