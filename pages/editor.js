@@ -87,53 +87,63 @@ export default function Editor() {
 
   // Handle file upload
   const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const file = e.target.files?.[0];
+  if (!file) {
+    setUploadError('Please select a file first');
+    return;
+  }
 
-    // Reset previous errors
-    setUploadError(null);
+  // Client-side validation
+  const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  const maxSize = 2 * 1024 * 1024; // 2MB
 
-    // Validate file
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      setUploadError('Only JPEG, PNG, or WEBP images are allowed');
-      return;
+  if (!validTypes.includes(file.type)) {
+    setUploadError('Only JPEG, PNG, or WEBP images are allowed');
+    e.target.value = ''; // Clear the invalid file
+    return;
+  }
+
+  if (file.size > maxSize) {
+    setUploadError('File size must be less than 2MB');
+    e.target.value = ''; // Clear the oversized file
+    return;
+  }
+
+  setUploading(true);
+  setUploadError(null);
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/upload-image', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.accessToken}`
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Upload failed');
     }
 
-    if (file.size > 2 * 1024 * 1024) { // 2MB
-      setUploadError('File size must be less than 2MB');
-      return;
+    const result = await response.json();
+    
+    if (!result?.imageUrl) {
+      throw new Error('Invalid response from server');
     }
 
-    setUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('/api/upload-image', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.accessToken}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Upload failed');
-      }
-
-      const result = await response.json();
-      setProfile(prev => ({...prev, photo: result.imageUrl}));
-    } catch (error) {
-      console.error('Upload error:', error);
-      setUploadError(error.message);
-    } finally {
-      setUploading(false);
-      e.target.value = ''; // Reset file input
-    }
-  };
+    setProfile(prev => ({...prev, photo: result.imageUrl}));
+  } catch (error) {
+    console.error('Upload error:', error);
+    setUploadError(error.message || 'File upload failed');
+  } finally {
+    setUploading(false);
+    e.target.value = ''; // Reset file input
+  }
+};
 
   // Helper functions for profile sections
   const toggleSensitivity = (option) => {
