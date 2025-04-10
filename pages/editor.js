@@ -1,9 +1,11 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/router';
+import { useSession } from 'next-auth/react';
 import { defaultProfile, sensitivityOptions, supportOptions } from '../lib/profile';
 import Header from '../components/Header';
 
 export default function Editor() {
+  const { data: session, status } = useSession();
   const [profile, setProfile] = useState({
     ...defaultProfile,
     emergency: {
@@ -15,58 +17,90 @@ export default function Editor() {
   });
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
+  const [saveError, setSaveError] = useState(null);
   const fileInputRef = useRef(null);
   const router = useRouter();
 
+  // Redirect if not authenticated
+  if (status === 'unauthenticated') {
+    router.push('/auth/signin');
+    return null;
+  }
+
   const handleSave = async (e) => {
     e.preventDefault();
+    setSaveError(null);
     
     try {
       const response = await fetch('/api/save-profile', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.accessToken}`
+        },
         body: JSON.stringify({
           ...profile,
-          username: profile.name.toLowerCase().replace(/\s+/g, '-')
+          username: session.user.username
         })
       });
       
-      if (response.ok) {
-        router.push(`/p/${profile.name.toLowerCase().replace(/\s+/g, '-')}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to save profile');
       }
+
+      router.push(`/p/${session.user.username}`);
     } catch (error) {
       console.error("Save failed:", error);
+      setSaveError(error.message);
     }
   };
 
-  // In your EditProfileComponent (frontend)
-const handleFileUpload = async (file) => {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    const response = await fetch('/api/upload', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session.accessToken}` // Make sure you have this
-      },
-      body: formData
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Upload failed');
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Only image files are allowed');
+      return;
     }
 
-    const result = await response.json();
-    setProfile(prev => ({...prev, photo: result.imageUrl}));
-    return result;
-  } catch (error) {
-    console.error('Upload error:', error);
-    setError(error.message);
-    throw error;
-  }
-};
+    if (file.size > 2 * 1024 * 1024) { // 2MB
+      setUploadError('File size must be less than 2MB');
+      return;
+    }
+
+    setUploading(true);
+    setUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.accessToken}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Upload failed');
+      }
+
+      const result = await response.json();
+      setProfile(prev => ({...prev, photo: result.imageUrl}));
+    } catch (error) {
+      console.error('Upload error:', error);
+      setUploadError(error.message);
+    } finally {
+      setUploading(false);
+      e.target.value = ''; // Reset file input
+    }
+  };
 
   const triggerFileInput = () => {
     fileInputRef.current.click();
@@ -219,16 +253,27 @@ const handleFileUpload = async (file) => {
     });
   };
 
+  if (status === 'loading') {
+    return (
+      <div className="editor-container">
+        <Header />
+        <div className="loading">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="editor-container">
       <Header />
       
       <form onSubmit={handleSave}>
+        {saveError && <div className="error-message">{saveError}</div>}
+
         {/* Basic Info Section */}
         <section className="editor-section">
           <h2>About You</h2>
           <div className="form-group">
-            <label>Full Name</label>
+            <label>Full Name *</label>
             <input
               value={profile.name}
               onChange={(e) => setProfile({...profile, name: e.target.value})}
@@ -237,7 +282,7 @@ const handleFileUpload = async (file) => {
           </div>
           
           <div className="form-group">
-            <label>About You</label>
+            <label>About You *</label>
             <textarea
               value={profile.about}
               onChange={(e) => setProfile({...profile, about: e.target.value})}
@@ -251,8 +296,11 @@ const handleFileUpload = async (file) => {
               {profile.photo && (
                 <img 
                   src={profile.photo} 
-                  alt="Preview" 
+                  alt="Profile preview" 
                   className="photo-preview"
+                  onError={(e) => {
+                    e.target.src = '/default-avatar.png';
+                  }}
                 />
               )}
               <input
@@ -261,6 +309,7 @@ const handleFileUpload = async (file) => {
                 onChange={handleFileUpload}
                 accept="image/*"
                 style={{ display: 'none' }}
+                disabled={uploading}
               />
               <button
                 type="button"
@@ -268,11 +317,25 @@ const handleFileUpload = async (file) => {
                 className="upload-btn"
                 disabled={uploading}
               >
-                {uploading ? 'Uploading...' : 'Upload Photo'}
+                {uploading ? (
+                  <>
+                    <span className="spinner"></span>
+                    Uploading...
+                  </>
+                ) : (
+                  'Upload Photo'
+                )}
               </button>
-              {uploadError && <div className="upload-error">{uploadError}</div>}
+              {uploadError && (
+                <div className="upload-error">
+                  <i className="fas fa-exclamation-circle"></i>
+                  {uploadError}
+                </div>
+              )}
               {!profile.photo && (
-                <p className="upload-hint">Max file size: 2MB (JPEG, PNG, GIF, WEBP)</p>
+                <p className="upload-hint">
+                  Recommended size: 500x500px (JPEG, PNG, WEBP)
+                </p>
               )}
             </div>
           </div>
@@ -291,7 +354,11 @@ const handleFileUpload = async (file) => {
                   onChange={() => toggleSensitivity(option)}
                 />
                 <label htmlFor={`sens-${option.id}`}>
-                  <img src={option.icon} alt="" className="sensitivity-icon" />
+                  <img 
+                    src={option.icon} 
+                    alt={option.label} 
+                    className="sensitivity-icon" 
+                  />
                   <span>{option.label}</span>
                 </label>
                 
@@ -367,7 +434,7 @@ const handleFileUpload = async (file) => {
                     onClick={() => removeEmergencyContact(index)}
                     className="remove-contact"
                   >
-                    Remove Contact
+                    Remove
                   </button>
                 )}
               </div>
