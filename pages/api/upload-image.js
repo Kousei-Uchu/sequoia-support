@@ -73,8 +73,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      // Return the proxied URL instead of direct GitHub URL
-      tempImageUrl: `/api/image-proxy?path=${encodeURIComponent(tempFilePath)}`,
+      tempImageUrl: `https://github.com/${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}/raw/main/${tempFilePath}`,
       tempFilePath
     });
 
