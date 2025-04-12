@@ -41,10 +41,10 @@ const loadProfile = async () => {
     setProfile(prev => ({
       ...prev,
       ...data,
-      // Use a proxied URL instead of direct GitHub link
-      photo: data.photo?.startsWith('http') 
-        ? `/api/image-proxy?url=${encodeURIComponent(data.photo)}` 
-        : '/default-avatar.png'
+      // Modify how the photo URL is handled
+      photo: data.photo?.startsWith('https://github.com/') 
+        ? `/api/image-proxy?path=${encodeURIComponent(data.photo.split('main/')[1])}`
+        : data.photo || '/default-avatar.png'
     }));
   } catch (error) {
     console.error('Profile load error:', error);
