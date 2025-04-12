@@ -41,7 +41,7 @@ export default function Editor() {
       setProfile(prev => ({
         ...prev,
         ...data,
-        photo: data.photo || session.user.image || '/default-avatar.png'
+        photo: data.photo || '/default-avatar.png' // Removed session.user.image fallback
       }));
     } catch (error) {
       console.error('Profile load error:', error);
@@ -52,98 +52,117 @@ export default function Editor() {
 
   // Handle form submission
   const handleSave = async (e) => {
-    e.preventDefault();
-    setSaveError(null);
+  e.preventDefault();
+  setSaveError(null);
+  
+  if (!session?.user?.username) {
+    setSaveError('User session not available');
+    return;
+  }
+
+  try {
+    setUploading(true);
     
-    if (!session?.user?.username) {
-      setSaveError('User session not available');
+    // Prepare the profile data without the temp path
+    const profileData = {
+      ...profile,
+      _tempImagePath: undefined // Don't save this in the profile
+    };
+
+    const response = await fetch('/api/save-profile', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.accessToken}`
+      },
+      body: JSON.stringify({
+        profile: profileData,
+        tempImagePath: profile._tempImagePath // Pass separately for image processing
+      })
+    });
+    
+    const responseData = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(responseData.error || 'Failed to save profile');
+    }
+
+    router.push(`/p/${session.user.username}`);
+  } catch (error) {
+    console.error("Save failed:", error);
+    setSaveError(error.message || 'Failed to save profile. Please try again.');
+    
+    // More detailed error handling
+    if (error.message.includes('Failed to process image')) {
+      setSaveError('Failed to save profile picture. Please try uploading again.');
+    } else if (error.message.includes('Failed to save profile data')) {
+      setSaveError('Failed to save profile information. Please try again.');
+    }
+  } finally {
+    setUploading(false);
+  }
+};
+
+  // Handle file upload
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setUploadError('Please select a file first');
       return;
     }
 
+    // Client-side validation
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const maxSize = 2 * 1024 * 1024; // 2MB
+
+    if (!validTypes.includes(file.type)) {
+      setUploadError('Only JPEG, PNG, or WEBP images are allowed');
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > maxSize) {
+      setUploadError('File size must be less than 2MB');
+      e.target.value = '';
+      return;
+    }
+
+    setUploading(true);
+    setUploadError(null);
+
     try {
-      const response = await fetch('/api/save-profile', {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload-image', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.accessToken}`
-        },
-        body: JSON.stringify({
-          ...profile,
-          username: session.user.username
-        })
+        body: formData
       });
-      
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save profile');
+        const errorText = await response.text();
+        throw new Error(errorText || 'Upload failed');
       }
 
-      router.push(`/p/${session.user.username}`);
+      const result = await response.json();
+      
+      if (!result?.tempImageUrl) {
+        throw new Error('Invalid response from server');
+      }
+
+      setProfile(prev => ({
+        ...prev,
+        photo: result.tempImageUrl,
+        _tempImagePath: result.tempFilePath // Store temp path for later processing
+      }));
     } catch (error) {
-      console.error("Save failed:", error);
-      setSaveError(error.message);
+      console.error('Upload error:', error);
+      setUploadError(error.message || 'File upload failed');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
     }
   };
-
-  // Handle file upload
-    const handleFileUpload = async (e) => {
-  const file = e.target.files?.[0];
-  if (!file) {
-    setUploadError('Please select a file first');
-    return;
-  }
-
-  // Client-side validation
-  const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  const maxSize = 2 * 1024 * 1024; // 2MB
-
-  if (!validTypes.includes(file.type)) {
-    setUploadError('Only JPEG, PNG, or WEBP images are allowed');
-    e.target.value = '';
-    return;
-  }
-
-  if (file.size > maxSize) {
-    setUploadError('File size must be less than 2MB');
-    e.target.value = '';
-    return;
-  }
-
-  setUploading(true);
-  setUploadError(null);
-
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('username', session.user.username);
-
-    console.log('Uploading file:', file.name, file.size, file.type);
-
-    const response = await fetch('/api/upload-image', {
-      method: 'POST',
-      body: formData
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || 'Upload failed');
-    }
-
-    const result = await response.json();
-    
-    if (!result?.imageUrl) {
-      throw new Error('Invalid response from server');
-    }
-
-    setProfile(prev => ({...prev, photo: result.imageUrl}));
-  } catch (error) {
-    console.error('Upload error:', error);
-    setUploadError(error.message || 'File upload failed');
-  } finally {
-    setUploading(false);
-    e.target.value = '';
-  }
-};
 
   // Helper functions for profile sections
   const toggleSensitivity = (option) => {
@@ -313,7 +332,7 @@ export default function Editor() {
                 accept="image/jpeg, image/png, image/webp"
                 style={{ display: 'none' }}
                 disabled={uploading}
-                id="profile-upload-input"  // Added ID for better debugging
+                id="profile-upload-input"
               />
               
               <button

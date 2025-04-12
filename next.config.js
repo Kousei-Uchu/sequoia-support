@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 module.exports = {
   images: {
-    domains: ['raw.githubusercontent.com'],
+    domains: ['github.com'],
   },
   async rewrites() {
     return [
@@ -9,6 +9,19 @@ module.exports = {
         source: '/p/:username',
         destination: '/profile/:username',
       }
+    ]
+  },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Set-Cookie',
+            value: 'SameSite=Lax; Secure',
+          }
+        ],
+      },
     ]
   }
 }
