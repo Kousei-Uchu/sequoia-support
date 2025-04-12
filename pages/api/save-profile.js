@@ -12,113 +12,115 @@ function encryptData(data, key) {
   return CryptoJS.AES.encrypt(JSON.stringify(data), key).toString();
 }
 
-async function cleanTempFiles(username) {
-  try {
-    const { data: files } = await octokit.repos.getContent({
-      owner: process.env.GITHUB_REPO_OWNER,
-      repo: process.env.GITHUB_REPO_NAME,
-      path: 'pictures/temp'
-    });
-
-    const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
-    
-    for (const file of files) {
-      if (file.name.startsWith(`${username}-`) && 
-          new Date(file.name.split('-')[1].replace('.png', '')) < twoHoursAgo) {
-        await octokit.repos.deleteFile({
-          owner: process.env.GITHUB_REPO_OWNER,
-          repo: process.env.GITHUB_REPO_NAME,
-          path: file.path,
-          message: `Clean up old temp file`,
-          sha: file.sha
-        });
-      }
-    }
-  } catch (error) {
-    console.error('Error cleaning temp files:', error);
-  }
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  if (!token) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const username = token.username || token.sub;
-  const { profile, tempImagePath } = req.body;
-
   try {
+    const token = await getToken({ req });
+    if (!token?.username) {
+      return res.status(401).json({ error: 'Unauthorized - No token found' });
+    }
+
+    const username = token.username;
+    const { profile, tempImagePath } = req.body;
+
+    if (!profile) {
+      return res.status(400).json({ error: 'Profile data is required' });
+    }
+
+    // 1. Handle image movement if temp image exists
     if (tempImagePath) {
-      const finalImagePath = `pictures/${username}.png`;
-      
-      const { data: tempFile } = await octokit.repos.getContent({
-        owner: process.env.GITHUB_REPO_OWNER,
-        repo: process.env.GITHUB_REPO_NAME,
-        path: tempImagePath
-      });
+      try {
+        const finalImagePath = `pictures/${username}.png`;
+        
+        // Get temp file content
+        const { data: tempFile } = await octokit.repos.getContent({
+          owner: process.env.GITHUB_REPO_OWNER,
+          repo: process.env.GITHUB_REPO_NAME,
+          path: tempImagePath,
+          branch: 'main'
+        });
+
+        // Create permanent file
+        await octokit.repos.createOrUpdateFileContents({
+          owner: process.env.GITHUB_REPO_OWNER,
+          repo: process.env.GITHUB_REPO_NAME,
+          path: finalImagePath,
+          message: `Profile image for ${username}`,
+          content: tempFile.content,
+          branch: 'main'
+        });
+
+        // Delete temp file
+        await octokit.repos.deleteFile({
+          owner: process.env.GITHUB_REPO_OWNER,
+          repo: process.env.GITHUB_REPO_NAME,
+          path: tempImagePath,
+          message: `Remove temp image for ${username}`,
+          sha: tempFile.sha,
+          branch: 'main'
+        });
+      } catch (error) {
+        console.error('Image processing error:', error);
+        return res.status(500).json({ 
+          error: 'Failed to process image',
+          details: error.message
+        });
+      }
+    }
+
+    // 2. Encrypt and save profile data
+    try {
+      const key = generateUserKey(username);
+      const encrypted = encryptData({
+        ...profile,
+        username,
+        lastUpdated: new Date().toISOString()
+      }, key);
+
+      const filePath = `profiles/${username}.json`;
+      const content = Buffer.from(encrypted).toString('base64');
+
+      // Check if file exists to get SHA
+      let sha;
+      try {
+        const { data } = await octokit.repos.getContent({
+          owner: process.env.GITHUB_REPO_OWNER,
+          repo: process.env.GITHUB_REPO_NAME,
+          path: filePath,
+          branch: 'main'
+        });
+        sha = data.sha;
+      } catch (error) {
+        if (error.status !== 404) throw error;
+      }
 
       await octokit.repos.createOrUpdateFileContents({
         owner: process.env.GITHUB_REPO_OWNER,
         repo: process.env.GITHUB_REPO_NAME,
-        path: finalImagePath,
-        message: `Profile image for ${username}`,
-        content: tempFile.content,
+        path: filePath,
+        message: `Save profile for ${username}`,
+        content,
+        sha,
         branch: 'main'
       });
 
-      await octokit.repos.deleteFile({
-        owner: process.env.GITHUB_REPO_OWNER,
-        repo: process.env.GITHUB_REPO_NAME,
-        path: tempImagePath,
-        message: `Remove temp image for ${username}`,
-        sha: tempFile.sha
-      });
-    }
-
-    await cleanTempFiles(username);
-
-    const key = generateUserKey(username);
-    const encrypted = encryptData({
-      ...profile,
-      username,
-      lastUpdated: new Date().toISOString()
-    }, key);
-
-    const filePath = `profiles/${username}.json`;
-    const content = Buffer.from(encrypted).toString('base64');
-
-    let sha;
-    try {
-      const { data } = await octokit.repos.getContent({
-        owner: process.env.GITHUB_REPO_OWNER,
-        repo: process.env.GITHUB_REPO_NAME,
-        path: filePath
-      });
-      sha = data.sha;
+      return res.status(200).json({ success: true });
     } catch (error) {
-      if (error.status !== 404) throw error;
+      console.error('Profile save error:', error);
+      return res.status(500).json({ 
+        error: 'Failed to save profile data',
+        details: error.message
+      });
     }
 
-    await octokit.repos.createOrUpdateFileContents({
-      owner: process.env.GITHUB_REPO_OWNER,
-      repo: process.env.GITHUB_REPO_NAME,
-      path: filePath,
-      message: `Save encrypted profile for ${username}`,
-      content,
-      sha
-    });
-
-    res.status(200).json({ success: true });
   } catch (error) {
-    console.error('Save error:', error);
-    res.status(500).json({ 
-      error: error.message || 'Failed to save profile',
-      details: error.response?.data?.message
+    console.error('Server error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message
     });
   }
 }
