@@ -73,7 +73,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      tempImageUrl: `https://raw.githubusercontent.com/${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}/main/${tempFilePath}`,
+      tempImageUrl: `https://github.com/${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}/raw/main/${tempFilePath}`,
       tempFilePath
     });
 
