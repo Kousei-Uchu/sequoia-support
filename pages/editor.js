@@ -52,44 +52,56 @@ export default function Editor() {
 
   // Handle form submission
   const handleSave = async (e) => {
-    e.preventDefault();
-    setSaveError(null);
+  e.preventDefault();
+  setSaveError(null);
+  
+  if (!session?.user?.username) {
+    setSaveError('User session not available');
+    return;
+  }
+
+  try {
+    setUploading(true);
     
-    if (!session?.user?.username) {
-      setSaveError('User session not available');
-      return;
+    // Prepare the profile data without the temp path
+    const profileData = {
+      ...profile,
+      _tempImagePath: undefined // Don't save this in the profile
+    };
+
+    const response = await fetch('/api/save-profile', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.accessToken}`
+      },
+      body: JSON.stringify({
+        profile: profileData,
+        tempImagePath: profile._tempImagePath // Pass separately for image processing
+      })
+    });
+    
+    const responseData = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(responseData.error || 'Failed to save profile');
     }
 
-    try {
-      setUploading(true);
-      const response = await fetch('/api/save-profile', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.accessToken}`
-        },
-        body: JSON.stringify({
-          profile: {
-            ...profile,
-            _tempImagePath: undefined // Don't save this in the profile
-          },
-          tempImagePath: profile._tempImagePath // Pass separately for image processing
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save profile');
-      }
-
-      router.push(`/p/${session.user.username}`);
-    } catch (error) {
-      console.error("Save failed:", error);
-      setSaveError(error.message);
-    } finally {
-      setUploading(false);
+    router.push(`/p/${session.user.username}`);
+  } catch (error) {
+    console.error("Save failed:", error);
+    setSaveError(error.message || 'Failed to save profile. Please try again.');
+    
+    // More detailed error handling
+    if (error.message.includes('Failed to process image')) {
+      setSaveError('Failed to save profile picture. Please try uploading again.');
+    } else if (error.message.includes('Failed to save profile data')) {
+      setSaveError('Failed to save profile information. Please try again.');
     }
-  };
+  } finally {
+    setUploading(false);
+  }
+};
 
   // Handle file upload
   const handleFileUpload = async (e) => {
