@@ -85,9 +85,14 @@ export default function ProfilePage() {
         <section className="about-section">
           <div className="profile-header">
             <img 
-              src={profile.photo || '/images/default-avatar.png'} 
+              src={profile.photo?.startsWith('http') 
+                ? `/api/image-proxy?url=${encodeURIComponent(profile.photo)}` 
+                : profile.photo || '/images/default-avatar.png'} 
               alt={profile.name} 
               className="profile-avatar"
+              onError={(e) => {
+                e.target.src = '/images/default-avatar.png';
+              }}
             />
             <h1>{profile.name}'s Support Profile</h1>
           </div>
