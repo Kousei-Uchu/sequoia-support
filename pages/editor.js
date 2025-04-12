@@ -31,24 +31,27 @@ export default function Editor() {
     }
   }, [status, router]);
 
-  // Load existing profile data
-  const loadProfile = async () => {
-    try {
-      const response = await fetch(`/api/get-profile?username=${session.user.username}`);
-      if (!response.ok) throw new Error('Failed to load profile');
-      
-      const data = await response.json();
-      setProfile(prev => ({
-        ...prev,
-        ...data,
-        photo: data.photo || '/default-avatar.png' // Removed session.user.image fallback
-      }));
-    } catch (error) {
-      console.error('Profile load error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // In the loadProfile function, modify the image URL handling:
+const loadProfile = async () => {
+  try {
+    const response = await fetch(`/api/get-profile?username=${session.user.username}`);
+    if (!response.ok) throw new Error('Failed to load profile');
+    
+    const data = await response.json();
+    setProfile(prev => ({
+      ...prev,
+      ...data,
+      // Use a proxied URL instead of direct GitHub link
+      photo: data.photo?.startsWith('http') 
+        ? `/api/image-proxy?url=${encodeURIComponent(data.photo)}` 
+        : '/default-avatar.png'
+    }));
+  } catch (error) {
+    console.error('Profile load error:', error);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // Handle form submission
   const handleSave = async (e) => {
