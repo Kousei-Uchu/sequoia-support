@@ -87,7 +87,7 @@ export default function Editor() {
 
   // Handle file upload
     const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
+    const file = Array.isArray(files?.file) ? files.file[0] : files.file;
     if (!file) {
       setUploadError('Please select a file first');
       return;
