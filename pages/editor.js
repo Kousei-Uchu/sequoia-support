@@ -87,62 +87,63 @@ export default function Editor() {
 
   // Handle file upload
     const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-      setUploadError('Please select a file first');
-      return;
+  const file = e.target.files?.[0];
+  if (!file) {
+    setUploadError('Please select a file first');
+    return;
+  }
+
+  // Client-side validation
+  const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  const maxSize = 2 * 1024 * 1024; // 2MB
+
+  if (!validTypes.includes(file.type)) {
+    setUploadError('Only JPEG, PNG, or WEBP images are allowed');
+    e.target.value = '';
+    return;
+  }
+
+  if (file.size > maxSize) {
+    setUploadError('File size must be less than 2MB');
+    e.target.value = '';
+    return;
+  }
+
+  setUploading(true);
+  setUploadError(null);
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('username', session.user.username);
+
+    console.log('Uploading file:', file.name, file.size, file.type);
+
+    const response = await fetch('/api/upload-image', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Upload failed');
     }
 
-    // Client-side validation
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    const maxSize = 2 * 1024 * 1024; // 2MB
-
-    if (!validTypes.includes(file.type)) {
-      setUploadError('Only JPEG, PNG, or WEBP images are allowed');
-      e.target.value = '';
-      return;
+    const result = await response.json();
+    
+    if (!result?.imageUrl) {
+      throw new Error('Invalid response from server');
     }
 
-    if (file.size > maxSize) {
-      setUploadError('File size must be less than 2MB');
-      e.target.value = '';
-      return;
-    }
-
-    setUploading(true);
-    setUploadError(null);
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('username', session.user.username);
-
-      console.log('Uploading file:', file.name, file.size, file.type);
-
-      const response = await fetch('/api/upload-image', {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Upload failed');
-      }
-
-      const result = await response.json();
-      
-      if (!result?.imageUrl) {
-        throw new Error('Invalid response from server');
-      }
-
-      setProfile(prev => ({...prev, photo: result.imageUrl}));
-    } catch (error) {
-      console.error('Upload error:', error);
-      setUploadError(error.message || 'File upload failed');
-    } finally {
-      setUploading(false);
-      e.target.value = '';
-    }
-  };
+    setProfile(prev => ({...prev, photo: result.imageUrl}));
+  } catch (error) {
+    console.error('Upload error:', error);
+    setUploadError(error.message || 'File upload failed');
+  } finally {
+    setUploading(false);
+    e.target.value = '';
+  }
+};
 
   // Helper functions for profile sections
   const toggleSensitivity = (option) => {
