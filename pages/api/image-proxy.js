@@ -1,69 +1,56 @@
 import { Octokit } from '@octokit/rest';
 
 const octokit = new Octokit({ 
-  auth: process.env.GITHUB_TOKEN,
-  request: { fetch: require('node-fetch') }
+  auth: process.env.GITHUB_TOKEN
 });
 
-async function tryGetImage(path) {
-  try {
-    const { data: fileData } = await octokit.repos.getContent({
-      owner: process.env.GITHUB_REPO_OWNER,
-      repo: process.env.GITHUB_REPO_NAME,
-      path: path,
-      headers: { 'Cache-Control': 'no-cache' }
-    });
-
-    return fileData.download_url
-      ? await (await fetch(fileData.download_url)).arrayBuffer()
-      : Buffer.from(fileData.content, 'base64');
-  } catch (error) {
-    return null;
-  }
-}
-
 export default async function handler(req, res) {
-  const { username } = req.query;
-
-  if (!username) {
-    return res.redirect(307, '/default-avatar.png');
-  }
+  const { path } = req.query;
 
   try {
-    // First try permanent location
-    const permPath = `pictures/${username}.png`;
-    let imageBuffer = await tryGetImage(permPath);
-
-    // If not found, try temp location
-    if (!imageBuffer) {
-      const tempPath = `pictures/temp/${username}-*.png`;
-      const { data: tempFiles } = await octokit.repos.getContent({
+    // Handle wildcard in temp filenames
+    let actualPath = path;
+    if (path.includes('*')) {
+      const username = path.split('/').pop().split('-')[0];
+      const dirPath = path.split('/').slice(0, -1).join('/');
+      
+      // List all files in temp directory
+      const { data: files } = await octokit.repos.getContent({
         owner: process.env.GITHUB_REPO_OWNER,
         repo: process.env.GITHUB_REPO_NAME,
-        path: 'pictures/temp',
-        headers: { 'Cache-Control': 'no-cache' }
+        path: dirPath
       });
 
       // Find most recent temp file for this user
-      const userTempFiles = tempFiles.filter(file => 
-        file.name.startsWith(`${username}-`) && file.name.endsWith('.png')
-      ).sort((a, b) => b.name.localeCompare(a.name));
+      const userFiles = files
+        .filter(file => file.name.startsWith(`${username}-`) && file.name.endsWith('.png'))
+        .sort((a, b) => b.name.localeCompare(a.name)); // Sort by newest first
 
-      if (userTempFiles.length > 0) {
-        imageBuffer = await tryGetImage(`pictures/temp/${userTempFiles[0].name}`);
+      if (userFiles.length > 0) {
+        actualPath = `${dirPath}/${userFiles[0].name}`;
+      } else {
+        return res.status(404).send('No temp image found');
       }
     }
 
-    if (!imageBuffer) {
-      throw new Error('No image found');
-    }
+    const { data: fileData } = await octokit.repos.getContent({
+      owner: process.env.GITHUB_REPO_OWNER,
+      repo: process.env.GITHUB_REPO_NAME,
+      path: actualPath
+    });
 
+    const imageBuffer = Buffer.from(fileData.content, 'base64');
     res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    return res.send(Buffer.from(imageBuffer));
+    res.setHeader('Cache-Control', actualPath.includes('temp/') 
+      ? 'public, max-age=3600' 
+      : 'public, max-age=86400');
+    return res.send(imageBuffer);
 
   } catch (error) {
     console.error('Image proxy failed:', error);
-    return res.redirect(307, '/default-avatar.png');
+    const defaultAvatar = await fetch(`${req.headers.origin}/default-avatar.png`);
+    const avatarBuffer = await defaultAvatar.arrayBuffer();
+    res.setHeader('Content-Type', 'image/png');
+    return res.send(Buffer.from(avatarBuffer));
   }
 }
