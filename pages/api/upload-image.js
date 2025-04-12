@@ -46,7 +46,7 @@ export default async function handler(req, res) {
 
     console.log('Parsed files:', files);
 
-    const file = files?.file?.[0];
+    const file = Array.isArray(files?.file) ? files.file[0] : files.file;
     if (!file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
