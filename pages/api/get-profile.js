@@ -25,7 +25,7 @@ export default async function handler(req, res) {
   // Set secure, first-party cookies
   res.setHeader(
     'Set-Cookie',
-    `profile_request=1; Path=/; HttpOnly; SameSite=Lax; Secure${process.env.NODE_ENV === 'production' ? '; Domain=yourdomain.com' : ''}`
+    `profile_request=1; Path=/; HttpOnly; SameSite=Lax; Secure${process.env.NODE_ENV === 'production' ? '; Domain=sequoiasupport.vercel.app' : ''}`
   );
 
   const { username } = req.query;
@@ -67,7 +67,8 @@ export default async function handler(req, res) {
           'Cache-Control': 'no-cache'
         }
       });
-      imageUrl = `https://github.com/${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}/raw/main/pictures/${username}.png?ts=${Date.now()}`;
+      // Use a backend-proxied URL instead of direct GitHub link
+      imageUrl = `/api/image-proxy?user=${username}&ts=${Date.now()}`;
     } catch (error) {
       console.log('Using default avatar');
     }
