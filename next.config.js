@@ -10,5 +10,18 @@ module.exports = {
         destination: '/profile/:username',
       }
     ]
+  },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Set-Cookie',
+            value: 'SameSite=Lax; Secure',
+          }
+        ],
+      },
+    ]
   }
 }
