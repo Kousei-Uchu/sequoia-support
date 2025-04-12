@@ -41,10 +41,12 @@ const loadProfile = async () => {
     setProfile(prev => ({
       ...prev,
       ...data,
-      // Modify how the photo URL is handled
-      photo: data.photo?.startsWith('https://github.com/') 
-        ? `/api/image-proxy?path=${encodeURIComponent(data.photo.split('main/')[1])}`
-        : data.photo || '/default-avatar.png'
+      // Modified photo URL handling to use proxy
+      photo: data.photo 
+        ? data.photo.startsWith('http')
+          ? `/api/image-proxy?url=${encodeURIComponent(data.photo)}`
+          : data.photo
+        : '/default-avatar.png'
     }));
   } catch (error) {
     console.error('Profile load error:', error);
@@ -155,8 +157,8 @@ const loadProfile = async () => {
 
       setProfile(prev => ({
         ...prev,
-        photo: result.tempImageUrl,
-        _tempImagePath: result.tempFilePath // Store temp path for later processing
+        photo: `/api/image-proxy?url=${encodeURIComponent(result.tempImageUrl)}`,
+        _tempImagePath: result.tempFilePath
       }));
     } catch (error) {
       console.error('Upload error:', error);
