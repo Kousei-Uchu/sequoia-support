@@ -41,7 +41,7 @@ export default function Editor() {
       setProfile(prev => ({
         ...prev,
         ...data,
-        photo: data.photo || session.user.image || '/default-avatar.png'
+        photo: data.photo || '/default-avatar.png' // Removed session.user.image fallback
       }));
     } catch (error) {
       console.error('Profile load error:', error);
@@ -61,6 +61,7 @@ export default function Editor() {
     }
 
     try {
+      setUploading(true);
       const response = await fetch('/api/save-profile', {
         method: 'POST',
         headers: { 
@@ -68,8 +69,11 @@ export default function Editor() {
           'Authorization': `Bearer ${session.accessToken}`
         },
         body: JSON.stringify({
-          ...profile,
-          username: session.user.username
+          profile: {
+            ...profile,
+            _tempImagePath: undefined // Don't save this in the profile
+          },
+          tempImagePath: profile._tempImagePath // Pass separately for image processing
         })
       });
       
@@ -82,68 +86,71 @@ export default function Editor() {
     } catch (error) {
       console.error("Save failed:", error);
       setSaveError(error.message);
+    } finally {
+      setUploading(false);
     }
   };
 
   // Handle file upload
-    const handleFileUpload = async (e) => {
-  const file = e.target.files?.[0];
-  if (!file) {
-    setUploadError('Please select a file first');
-    return;
-  }
-
-  // Client-side validation
-  const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  const maxSize = 2 * 1024 * 1024; // 2MB
-
-  if (!validTypes.includes(file.type)) {
-    setUploadError('Only JPEG, PNG, or WEBP images are allowed');
-    e.target.value = '';
-    return;
-  }
-
-  if (file.size > maxSize) {
-    setUploadError('File size must be less than 2MB');
-    e.target.value = '';
-    return;
-  }
-
-  setUploading(true);
-  setUploadError(null);
-
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('username', session.user.username);
-
-    console.log('Uploading file:', file.name, file.size, file.type);
-
-    const response = await fetch('/api/upload-image', {
-      method: 'POST',
-      body: formData
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || 'Upload failed');
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setUploadError('Please select a file first');
+      return;
     }
 
-    const result = await response.json();
-    
-    if (!result?.imageUrl) {
-      throw new Error('Invalid response from server');
+    // Client-side validation
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const maxSize = 2 * 1024 * 1024; // 2MB
+
+    if (!validTypes.includes(file.type)) {
+      setUploadError('Only JPEG, PNG, or WEBP images are allowed');
+      e.target.value = '';
+      return;
     }
 
-    setProfile(prev => ({...prev, photo: result.imageUrl}));
-  } catch (error) {
-    console.error('Upload error:', error);
-    setUploadError(error.message || 'File upload failed');
-  } finally {
-    setUploading(false);
-    e.target.value = '';
-  }
-};
+    if (file.size > maxSize) {
+      setUploadError('File size must be less than 2MB');
+      e.target.value = '';
+      return;
+    }
+
+    setUploading(true);
+    setUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Upload failed');
+      }
+
+      const result = await response.json();
+      
+      if (!result?.tempImageUrl) {
+        throw new Error('Invalid response from server');
+      }
+
+      setProfile(prev => ({
+        ...prev,
+        photo: result.tempImageUrl,
+        _tempImagePath: result.tempFilePath // Store temp path for later processing
+      }));
+    } catch (error) {
+      console.error('Upload error:', error);
+      setUploadError(error.message || 'File upload failed');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
 
   // Helper functions for profile sections
   const toggleSensitivity = (option) => {
@@ -313,7 +320,7 @@ export default function Editor() {
                 accept="image/jpeg, image/png, image/webp"
                 style={{ display: 'none' }}
                 disabled={uploading}
-                id="profile-upload-input"  // Added ID for better debugging
+                id="profile-upload-input"
               />
               
               <button
