@@ -38,7 +38,7 @@ export default async function handler(req, res) {
         repo: process.env.GITHUB_REPO_NAME,
         path: `pictures/${username}.png`
       });
-      imageUrl = `https://raw.githubusercontent.com/${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}/main/pictures/${username}.png`;
+      imageUrl = `https://github.com/${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}/raw/main/pictures/${username}.png`;
     } catch (error) {
       console.log('No profile image found, using default');
     }
