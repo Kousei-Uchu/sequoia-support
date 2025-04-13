@@ -59,48 +59,71 @@ export default async function handler(req, res) {
 
     // 2. If there's a temp image, move it to permanent location
     if (tempImagePath) {
-      const permanentImagePath = `pictures/${username}.png`;
-      let imageSha = null;
-
       try {
+        const permanentImagePath = `pictures/${username}.png`;
+        let imageSha = null;
+
         // Get current image SHA if it exists
-        const { data: existingImage } = await octokit.repos.getContent({
+        try {
+          const { data: existingImage } = await octokit.repos.getContent({
+            owner: process.env.GITHUB_REPO_OWNER,
+            repo: process.env.GITHUB_REPO_NAME,
+            path: permanentImagePath
+          });
+          imageSha = existingImage.sha;
+        } catch (error) {
+          // Image doesn't exist yet, that's fine
+        }
+
+        // Get the temp image content
+        const { data: tempImage } = await octokit.repos.getContent({
           owner: process.env.GITHUB_REPO_OWNER,
           repo: process.env.GITHUB_REPO_NAME,
-          path: permanentImagePath
+          path: tempImagePath
         });
-        imageSha = existingImage.sha;
-      } catch (error) {
-        // Image doesn't exist yet, that's fine
+
+        // Validate image before moving
+        if (!tempImage.content) {
+          throw new Error('Temp image has no content');
+        }
+        validateImageContent(tempImage.content);
+
+        // Move to permanent location
+        await octokit.repos.createOrUpdateFileContents({
+          owner: process.env.GITHUB_REPO_OWNER,
+          repo: process.env.GITHUB_REPO_NAME,
+          path: permanentImagePath,
+          message: `Profile image for ${username}`,
+          content: tempImage.content,
+          sha: imageSha,
+          branch: 'main'
+        });
+
+        // Delete the temp file
+        await octokit.repos.deleteFile({
+          owner: process.env.GITHUB_REPO_OWNER,
+          repo: process.env.GITHUB_REPO_NAME,
+          path: tempImagePath,
+          message: `Remove temp image for ${username}`,
+          sha: tempImage.sha,
+          branch: 'main'
+        });
+
+      } catch (imageError) {
+        console.error('Image processing failed, reverting profile update:', imageError);
+        
+        // Revert profile update if image processing fails
+        await octokit.repos.deleteFile({
+          owner: process.env.GITHUB_REPO_OWNER,
+          repo: process.env.GITHUB_REPO_NAME,
+          path: profilePath,
+          message: `Reverting profile update due to image save failure`,
+          sha: newProfileSha,
+          branch: 'main'
+        });
+
+        throw imageError;
       }
-
-      // Get the temp image content
-      const { data: tempImage } = await octokit.repos.getContent({
-        owner: process.env.GITHUB_REPO_OWNER,
-        repo: process.env.GITHUB_REPO_NAME,
-        path: tempImagePath
-      });
-
-      // Move to permanent location
-      await octokit.repos.createOrUpdateFileContents({
-        owner: process.env.GITHUB_REPO_OWNER,
-        repo: process.env.GITHUB_REPO_NAME,
-        path: permanentImagePath,
-        message: `Profile image for ${username}`,
-        content: tempImage.content,
-        sha: imageSha, // Include SHA if updating existing image
-        branch: 'main'
-      });
-
-      // Delete the temp file
-      await octokit.repos.deleteFile({
-        owner: process.env.GITHUB_REPO_OWNER,
-        repo: process.env.GITHUB_REPO_NAME,
-        path: tempImagePath,
-        message: `Remove temp image for ${username}`,
-        sha: tempImage.sha,
-        branch: 'main'
-      });
     }
 
     return res.status(200).json({ success: true });
