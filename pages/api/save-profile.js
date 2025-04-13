@@ -25,6 +25,8 @@ async function validateAndMoveImage(tempImagePath, username) {
       repo: process.env.GITHUB_REPO_NAME,
       path: tempImagePath
     });
+    
+    console.log('📦 GitHub response for temp image:', tempImage);
 
     console.log('Temp image metadata:', {
       path: tempImagePath,
