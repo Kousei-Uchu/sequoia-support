@@ -28,10 +28,10 @@ export default async function handler(req, res) {
 
     const form = formidable({
       multiples: false,
-      maxFileSize: 2 * 1024 * 1024,
+      maxFileSize: 4 * 1024 * 1024,
       filename: () => tempFileName,
       filter: ({ mimetype }) => {
-        return !!mimetype?.match(/^image\/(jpeg|png|webp)$/);
+        return !!mimetype?.match(/^image\/(jpeg|png|jpg)$/);
       }
     });
 
@@ -39,9 +39,9 @@ export default async function handler(req, res) {
       form.parse(req, (err, fields, files) => {
         if (err) {
           if (err.code === 'LIMIT_FILE_SIZE') {
-            reject(new Error('File size must be less than 2MB'));
+            reject(new Error('File size must be less than 4MB'));
           } else if (err.message.includes('mimetype')) {
-            reject(new Error('Only JPEG, PNG, or WEBP images are allowed'));
+            reject(new Error('Only JPEG, PNG, or JPG images are allowed'));
           } else {
             reject(err);
           }
