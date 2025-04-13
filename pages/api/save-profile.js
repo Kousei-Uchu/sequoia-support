@@ -19,72 +19,68 @@ function encryptData(data, key) {
 }
 
 async function validateAndMoveImage(tempImagePath, username) {
+  const { data: tempImageMeta } = await octokit.repos.getContent({
+    owner: process.env.GITHUB_REPO_OWNER,
+    repo: process.env.GITHUB_REPO_NAME,
+    path: tempImagePath
+  });
+
+  if (tempImageMeta.type !== 'file' || !tempImageMeta.download_url) {
+    throw new Error('Temp image is not a valid file or lacks a download URL');
+  }
+
+  const response = await fetch(tempImageMeta.download_url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch raw image from GitHub: ${response.status}`);
+  }
+
+  const imageBuffer = Buffer.from(await response.arrayBuffer());
+
+  if (imageBuffer.length > MAX_IMAGE_SIZE) {
+    throw new Error(`Image exceeds maximum size of ${MAX_IMAGE_SIZE} bytes`);
+  }
+
+  const ext = tempImagePath.split('.').pop().toLowerCase();
+  if (!VALID_IMAGE_TYPES.includes(ext)) {
+    throw new Error(`Unsupported image type: ${ext}`);
+  }
+
+  const permanentPath = `pictures/${username}.png`;
+  let existingSha = null;
+
   try {
-    const { data: tempImage } = await octokit.repos.getContent({
+    const { data: existing } = await octokit.repos.getContent({
       owner: process.env.GITHUB_REPO_OWNER,
       repo: process.env.GITHUB_REPO_NAME,
-      path: tempImagePath
+      path: permanentPath
     });
-    
-    console.log('📦 GitHub response for temp image:', tempImage);
+    existingSha = existing.sha;
+  } catch { }
 
-    console.log('Temp image metadata:', {
-      path: tempImagePath,
-      size: tempImage.size,
-      sha: tempImage.sha
-    });
+  const base64Content = imageBuffer.toString('base64');
 
-    if (!tempImage.content) {
-      throw new Error('Temp image has no content');
-    }
+  await octokit.repos.createOrUpdateFileContents({
+    owner: process.env.GITHUB_REPO_OWNER,
+    repo: process.env.GITHUB_REPO_NAME,
+    path: permanentPath,
+    message: `Profile image for ${username}`,
+    content: base64Content,
+    sha: existingSha,
+    branch: 'main'
+  });
 
-    const imageBuffer = Buffer.from(tempImage.content, 'base64');
-    
-    if (imageBuffer.length > MAX_IMAGE_SIZE) {
-      throw new Error(`Image size ${imageBuffer.length} bytes exceeds 4MB limit`);
-    }
+  await octokit.repos.deleteFile({
+    owner: process.env.GITHUB_REPO_OWNER,
+    repo: process.env.GITHUB_REPO_NAME,
+    path: tempImagePath,
+    message: `Delete temp image for ${username}`,
+    sha: tempImageMeta.sha,
+    branch: 'main'
+  });
 
-    const fileExt = tempImagePath.split('.').pop().toLowerCase();
-    if (!VALID_IMAGE_TYPES.includes(fileExt)) {
-      throw new Error(`Invalid image type: ${fileExt}`);
-    }
+  return `/api/image-proxy?path=${permanentPath}&ts=${Date.now()}`;
 
-    const permanentPath = `pictures/${username}.png`;
-    let imageSha = null;
-
-    try {
-      const { data: existingImage } = await octokit.repos.getContent({
-        owner: process.env.GITHUB_REPO_OWNER,
-        repo: process.env.GITHUB_REPO_NAME,
-        path: permanentPath
-      });
-      imageSha = existingImage.sha;
-    } catch {
-      console.log('No existing image found, creating new.');
-    }
-
-    const saveResponse = await octokit.repos.createOrUpdateFileContents({
-      owner: process.env.GITHUB_REPO_OWNER,
-      repo: process.env.GITHUB_REPO_NAME,
-      path: permanentPath,
-      message: `Profile image for ${username}`,
-      content: tempImage.content,
-      sha: imageSha,
-      branch: 'main'
-    });
-
-    await octokit.repos.deleteFile({
-      owner: process.env.GITHUB_REPO_OWNER,
-      repo: process.env.GITHUB_REPO_NAME,
-      path: tempImagePath,
-      message: `Remove temp image for ${username}`,
-      sha: tempImage.sha,
-      branch: 'main'
-    });
-
-    return `/api/image-proxy?path=pictures/${username}.png&ts=${Date.now()}`;
-
-  } catch (error) {
+} catch (error) {
     console.error('Image processing error details:', {
       error: error.message,
       stack: error.stack,
