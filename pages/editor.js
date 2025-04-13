@@ -40,7 +40,7 @@ export default function Editor() {
       const imgResponse = await fetch(`/api/image-proxy?path=pictures/${session.user.username}.png`);
       const imageUrl = imgResponse.ok 
         ? `/api/image-proxy?path=pictures/${session.user.username}.png`
-        : data.photo || '/default-avatar.png';
+        : /** data.photo || */'/default-avatar.png';
 
       setProfile(prev => ({
         ...prev,
