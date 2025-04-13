@@ -30,29 +30,23 @@ export default function Editor() {
   }, [status, router]);
 
   const loadProfile = async () => {
-    try {
-      const response = await fetch(`/api/get-profile?username=${session.user.username}`);
-      if (!response.ok) throw new Error('Failed to load profile');
-      
-      const data = await response.json();
-      
-      // First try permanent image
-      const imgResponse = await fetch(`/api/image-proxy?path=pictures/${session.user.username}.png`);
-      const imageUrl = imgResponse.ok 
-        ? `/api/image-proxy?path=pictures/${session.user.username}.png`
-        : /** data.photo || */'/default-avatar.png';
-
-      setProfile(prev => ({
-        ...prev,
-        ...data,
-        photo: imageUrl
-      }));
-    } catch (error) {
-      console.error('Profile load error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  try {
+    const response = await fetch(`/api/get-profile?username=${session.user.username}&ts=${Date.now()}`);
+    if (!response.ok) throw new Error('Failed to load profile');
+    
+    const data = await response.json();
+    setProfile(prev => ({
+      ...prev,
+      ...data,
+      // Let the image component handle the URL formatting
+      photo: data.photo || '/default-avatar.png'
+    }));
+  } catch (error) {
+    console.error('Profile load error:', error);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // Handle form submission
   const handleSave = async (e) => {
