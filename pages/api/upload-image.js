@@ -57,7 +57,7 @@ export default async function handler(req, res) {
     }
 
     const fileBuffer = fs.readFileSync(file.filepath);
-    const fileContent = fileBuffer.toString('base64');
+    const fileContent = Buffer.from(fileBuffer).toString('base64');
 
     const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
     await octokit.repos.createOrUpdateFileContents({
