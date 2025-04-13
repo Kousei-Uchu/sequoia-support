@@ -7,8 +7,9 @@ const octokit = new Octokit({
   request: { fetch: require('node-fetch') }
 });
 
-// Constants (added)
+// Constants
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
+const VALID_IMAGE_TYPES = ['png', 'jpeg', 'jpg'];
 
 function generateUserKey(username) {
   return CryptoJS.SHA256(username + '-sequoia').toString();
@@ -18,19 +19,89 @@ function encryptData(data, key) {
   return CryptoJS.AES.encrypt(JSON.stringify(data), key).toString();
 }
 
-// New helper function
-function validateImageContent(content) {
-  const buffer = Buffer.from(content, 'base64');
-  
-  // Check size
-  if (buffer.length > MAX_IMAGE_SIZE) {
-    throw new Error('Image exceeds maximum size of 2MB');
-  }
+async function validateAndMoveImage(tempImagePath, username) {
+  try {
+    // 1. Get temp image content
+    const { data: tempImage } = await octokit.repos.getContent({
+      owner: process.env.GITHUB_REPO_OWNER,
+      repo: process.env.GITHUB_REPO_NAME,
+      path: tempImagePath
+    });
 
-  // Basic check for PNG/JPEG magic numbers
-  const hexStart = buffer.slice(0, 4).toString('hex');
-  if (!['89504e47', 'ffd8ffe0', 'ffd8ffee'].includes(hexStart)) {
-    throw new Error('Invalid image format (only PNG/JPEG allowed)');
+    console.log('Temp image metadata:', {
+      path: tempImagePath,
+      size: tempImage.size,
+      sha: tempImage.sha
+    });
+
+    if (!tempImage.content) {
+      throw new Error('Temp image has no content');
+    }
+
+    // 2. Validate image content
+    const imageBuffer = Buffer.from(tempImage.content, 'base64');
+    
+    // Check size
+    if (imageBuffer.length > MAX_IMAGE_SIZE) {
+      throw new Error(`Image size ${imageBuffer.length} bytes exceeds 2MB limit`);
+    }
+
+    // Check file type
+    const fileExt = tempImagePath.split('.').pop().toLowerCase();
+    if (!VALID_IMAGE_TYPES.includes(fileExt)) {
+      throw new Error(`Invalid image type: ${fileExt}`);
+    }
+
+    // 3. Prepare permanent location
+    const permanentPath = `pictures/${username}.png`;
+    let imageSha = null;
+
+    try {
+      const { data: existingImage } = await octokit.repos.getContent({
+        owner: process.env.GITHUB_REPO_OWNER,
+        repo: process.env.GITHUB_REPO_NAME,
+        path: permanentPath
+      });
+      imageSha = existingImage.sha;
+    } catch (error) {
+      console.log('No existing image found, will create new');
+    }
+
+    // 4. Save to permanent location
+    const saveResponse = await octokit.repos.createOrUpdateFileContents({
+      owner: process.env.GITHUB_REPO_OWNER,
+      repo: process.env.GITHUB_REPO_NAME,
+      path: permanentPath,
+      message: `Profile image for ${username}`,
+      content: tempImage.content,
+      sha: imageSha,
+      branch: 'main'
+    });
+
+    console.log('Image saved successfully:', {
+      path: permanentPath,
+      sha: saveResponse.data.content.sha
+    });
+
+    // 5. Delete temp file
+    await octokit.repos.deleteFile({
+      owner: process.env.GITHUB_REPO_OWNER,
+      repo: process.env.GITHUB_REPO_NAME,
+      path: tempImagePath,
+      message: `Remove temp image for ${username}`,
+      sha: tempImage.sha,
+      branch: 'main'
+    });
+
+    return `/api/image-proxy?path=pictures/${username}.png&ts=${Date.now()}`;
+
+  } catch (error) {
+    console.error('Image processing error details:', {
+      error: error.message,
+      stack: error.stack,
+      response: error.response?.data
+    });
+    throw new Error(`Image processing failed: ${error.message}`);
   }
 }
 
@@ -50,7 +121,7 @@ export default async function handler(req, res) {
     const key = generateUserKey(username);
     const encrypted = encryptData(profile, key);
 
-    // 1. Save profile data (unchanged)
+    // 1. Save profile data
     const profilePath = `profiles/${username}.json`;
     let profileSha = null;
 
@@ -75,71 +146,25 @@ export default async function handler(req, res) {
       branch: 'main'
     });
 
-    // 2. Handle image processing with validation
+    // 2. Process image if exists
+    let photoUrl = null;
     if (tempImagePath) {
-      try {
-        // Get and validate temp image
-        const { data: tempImage } = await octokit.repos.getContent({
-          owner: process.env.GITHUB_REPO_OWNER,
-          repo: process.env.GITHUB_REPO_NAME,
-          path: tempImagePath
-        });
-
-        if (!tempImage.content) {
-          throw new Error('Temp image has no content');
-        }
-        validateImageContent(tempImage.content);
-
-        // Move to permanent location
-        const permanentPath = `pictures/${username}.png`;
-        let imageSha = null;
-
-        try {
-          const { data: existingImage } = await octokit.repos.getContent({
-            owner: process.env.GITHUB_REPO_OWNER,
-            repo: process.env.GITHUB_REPO_NAME,
-            path: permanentPath
-          });
-          imageSha = existingImage.sha;
-        } catch (error) {
-          // Image doesn't exist yet
-        }
-
-        await octokit.repos.createOrUpdateFileContents({
-          owner: process.env.GITHUB_REPO_OWNER,
-          repo: process.env.GITHUB_REPO_NAME,
-          path: permanentPath,
-          message: `Profile image for ${username}`,
-          content: tempImage.content,
-          sha: imageSha,
-          branch: 'main'
-        });
-
-        // Delete temp file
-        await octokit.repos.deleteFile({
-          owner: process.env.GITHUB_REPO_OWNER,
-          repo: process.env.GITHUB_REPO_NAME,
-          path: tempImagePath,
-          message: `Remove temp image for ${username}`,
-          sha: tempImage.sha,
-          branch: 'main'
-        });
-
-      } catch (imageError) {
-        console.error('Image processing failed:', imageError);
-        throw new Error('Failed to process profile image');
-      }
+      photoUrl = await validateAndMoveImage(tempImagePath, username);
     }
 
     return res.status(200).json({
       success: true,
-      photo: `/api/image-proxy?path=pictures/${username}.png&ts=${Date.now()}`
+      photo: photoUrl || undefined
     });
 
   } catch (error) {
-    console.error('Save profile error:', error);
-    
-    // Handle rate limits
+    console.error('Complete save error:', {
+      message: error.message,
+      stack: error.stack,
+      request: error.request,
+      response: error.response?.data
+    });
+
     if (error.status === 403 && error.headers?.['x-ratelimit-remaining'] === '0') {
       return res.status(429).json({
         error: 'GitHub API rate limit exceeded',
@@ -149,7 +174,10 @@ export default async function handler(req, res) {
 
     return res.status(500).json({ 
       error: error.message || 'Failed to save profile',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      details: process.env.NODE_ENV === 'development' ? {
+        stack: error.stack,
+        apiError: error.response?.data
+      } : undefined
     });
   }
 }
