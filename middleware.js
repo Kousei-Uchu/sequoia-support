@@ -13,8 +13,8 @@ export async function middleware(req) {
 
   // Auth routes
   const authRoutes = [
-    '/auth/signin',
-    '/auth/error'
+    '/api/auth/signin',
+    '/api/auth/error'
   ];
 
   // 1. Redirect to login if trying to access protected routes while unauthenticated
