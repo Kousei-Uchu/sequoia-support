@@ -2,14 +2,13 @@ import { Octokit } from '@octokit/rest';
 import CryptoJS from 'crypto-js';
 import { getToken } from 'next-auth/jwt';
 
-const octokit = new Octokit({ 
+const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN,
   request: { fetch: require('node-fetch') }
 });
 
-// Constants
-const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB
-const VALID_IMAGE_TYPES = ['png', 'jpeg', 'jpg'];
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
+const VALID_IMAGE_TYPES = ['png', 'jpeg', 'jpg', 'webp'];
 
 function generateUserKey(username) {
   return CryptoJS.SHA256(username + '-sequoia').toString();
@@ -21,7 +20,6 @@ function encryptData(data, key) {
 
 async function validateAndMoveImage(tempImagePath, username) {
   try {
-    // 1. Get temp image content
     const { data: tempImage } = await octokit.repos.getContent({
       owner: process.env.GITHUB_REPO_OWNER,
       repo: process.env.GITHUB_REPO_NAME,
@@ -38,21 +36,17 @@ async function validateAndMoveImage(tempImagePath, username) {
       throw new Error('Temp image has no content');
     }
 
-    // 2. Validate image content
     const imageBuffer = Buffer.from(tempImage.content, 'base64');
     
-    // Check size
     if (imageBuffer.length > MAX_IMAGE_SIZE) {
-      throw new Error(`Image size ${imageBuffer.length} bytes exceeds 2MB limit`);
+      throw new Error(`Image size ${imageBuffer.length} bytes exceeds 4MB limit`);
     }
 
-    // Check file type
     const fileExt = tempImagePath.split('.').pop().toLowerCase();
     if (!VALID_IMAGE_TYPES.includes(fileExt)) {
       throw new Error(`Invalid image type: ${fileExt}`);
     }
 
-    // 3. Prepare permanent location
     const permanentPath = `pictures/${username}.png`;
     let imageSha = null;
 
@@ -63,11 +57,10 @@ async function validateAndMoveImage(tempImagePath, username) {
         path: permanentPath
       });
       imageSha = existingImage.sha;
-    } catch (error) {
-      console.log('No existing image found, will create new');
+    } catch {
+      console.log('No existing image found, creating new.');
     }
 
-    // 4. Save to permanent location
     const saveResponse = await octokit.repos.createOrUpdateFileContents({
       owner: process.env.GITHUB_REPO_OWNER,
       repo: process.env.GITHUB_REPO_NAME,
@@ -78,12 +71,6 @@ async function validateAndMoveImage(tempImagePath, username) {
       branch: 'main'
     });
 
-    console.log('Image saved successfully:', {
-      path: permanentPath,
-      sha: saveResponse.data.content.sha
-    });
-
-    // 5. Delete temp file
     await octokit.repos.deleteFile({
       owner: process.env.GITHUB_REPO_OWNER,
       repo: process.env.GITHUB_REPO_NAME,
@@ -121,7 +108,6 @@ export default async function handler(req, res) {
     const key = generateUserKey(username);
     const encrypted = encryptData(profile, key);
 
-    // 1. Save profile data
     const profilePath = `profiles/${username}.json`;
     let profileSha = null;
 
@@ -132,11 +118,11 @@ export default async function handler(req, res) {
         path: profilePath
       });
       profileSha = existingProfile.sha;
-    } catch (error) {
-      // File doesn't exist yet
+    } catch {
+      console.log('Creating new profile file');
     }
 
-    const profileResponse = await octokit.repos.createOrUpdateFileContents({
+    await octokit.repos.createOrUpdateFileContents({
       owner: process.env.GITHUB_REPO_OWNER,
       repo: process.env.GITHUB_REPO_NAME,
       path: profilePath,
@@ -146,7 +132,6 @@ export default async function handler(req, res) {
       branch: 'main'
     });
 
-    // 2. Process image if exists
     let photoUrl = null;
     if (tempImagePath) {
       photoUrl = await validateAndMoveImage(tempImagePath, username);
@@ -172,7 +157,7 @@ export default async function handler(req, res) {
       });
     }
 
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: error.message || 'Failed to save profile',
       details: process.env.NODE_ENV === 'development' ? {
         stack: error.stack,
