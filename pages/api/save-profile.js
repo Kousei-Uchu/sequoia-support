@@ -8,7 +8,7 @@ const octokit = new Octokit({
 });
 
 // Constants
-const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB
 const VALID_IMAGE_TYPES = ['png', 'jpeg', 'jpg'];
 
 function generateUserKey(username) {
