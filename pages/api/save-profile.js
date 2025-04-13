@@ -7,12 +7,44 @@ const octokit = new Octokit({
   request: { fetch: require('node-fetch') }
 });
 
+// Constants
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
+const IMAGE_MAGIC_NUMBERS = {
+  png: '89504e47',
+  jpeg: ['ffd8ffe0', 'ffd8ffee']
+};
+
 function generateUserKey(username) {
   return CryptoJS.SHA256(username + '-sequoia').toString();
 }
 
 function encryptData(data, key) {
   return CryptoJS.AES.encrypt(JSON.stringify(data), key).toString();
+}
+
+function validateImageContent(content) {
+  try {
+    const buffer = Buffer.from(content, 'base64');
+    
+    // Check size
+    if (buffer.length > MAX_IMAGE_SIZE) {
+      throw new Error(`Image exceeds maximum size of ${MAX_IMAGE_SIZE} bytes`);
+    }
+
+    // Check file type
+    const hexStart = buffer.slice(0, 4).toString('hex');
+    const isPNG = hexStart === IMAGE_MAGIC_NUMBERS.png;
+    const isJPEG = IMAGE_MAGIC_NUMBERS.jpeg.includes(hexStart);
+    
+    if (!isPNG && !isJPEG) {
+      throw new Error('Invalid image format (only PNG/JPEG allowed)');
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Image validation failed:', error);
+    throw error;
+  }
 }
 
 export default async function handler(req, res) {
@@ -34,6 +66,7 @@ export default async function handler(req, res) {
     // 1. First save the profile data
     const profilePath = `profiles/${username}.json`;
     let profileSha = null;
+    let newProfileSha = null;
 
     try {
       // Get current file SHA if it exists
@@ -47,15 +80,17 @@ export default async function handler(req, res) {
       // File doesn't exist yet, that's fine
     }
 
-    await octokit.repos.createOrUpdateFileContents({
+    // Save profile data
+    const profileResponse = await octokit.repos.createOrUpdateFileContents({
       owner: process.env.GITHUB_REPO_OWNER,
       repo: process.env.GITHUB_REPO_NAME,
       path: profilePath,
       message: `Update profile for ${username}`,
       content: Buffer.from(encrypted).toString('base64'),
-      sha: profileSha, // Include SHA if updating existing file
+      sha: profileSha,
       branch: 'main'
     });
+    newProfileSha = profileResponse.data.content.sha;
 
     // 2. If there's a temp image, move it to permanent location
     if (tempImagePath) {
@@ -126,10 +161,26 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ success: true });
+    return res.status(200).json({
+      success: true,
+      photo: `https://github.com/${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}/raw/main/pictures/${username}.png?ts=${Date.now()}`
+    });
 
   } catch (error) {
-    console.error('Save profile error:', error);
+    console.error('Save profile error:', {
+      message: error.message,
+      request: error.request,
+      response: error.response?.data,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+
+    if (error.status === 403 && error.headers?.['x-ratelimit-remaining'] === '0') {
+      return res.status(429).json({
+        error: 'GitHub API rate limit exceeded',
+        reset: new Date(error.headers['x-ratelimit-reset'] * 1000)
+      });
+    }
+
     return res.status(500).json({ 
       error: error.message || 'Failed to save profile',
       details: error.response?.data?.message
