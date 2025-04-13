@@ -9,7 +9,6 @@ export default function Editor() {
   const router = useRouter();
   const fileInputRef = useRef(null);
 
-  // Initialize profile state
   const [profile, setProfile] = useState({
     ...defaultProfile,
     emergency: {
@@ -22,7 +21,6 @@ export default function Editor() {
   const [saveError, setSaveError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Redirect if not authenticated
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/signin');
@@ -31,29 +29,30 @@ export default function Editor() {
     }
   }, [status, router]);
 
-  // In the loadProfile function, modify the image URL handling:
-const loadProfile = async () => {
-  try {
-    const response = await fetch(`/api/get-profile?username=${session.user.username}`);
-    if (!response.ok) throw new Error('Failed to load profile');
-    
-    const data = await response.json();
-    setProfile(prev => ({
-      ...prev,
-      ...data,
-      // Modified photo URL handling to use proxy
-      photo: data.photo 
-        ? data.photo.startsWith('http')
-          ? `/api/image-proxy?url=${encodeURIComponent(data.photo)}`
-          : data.photo
-        : '/default-avatar.png'
-    }));
-  } catch (error) {
-    console.error('Profile load error:', error);
-  } finally {
-    setIsLoading(false);
-  }
-};
+  const loadProfile = async () => {
+    try {
+      const response = await fetch(`/api/get-profile?username=${session.user.username}`);
+      if (!response.ok) throw new Error('Failed to load profile');
+      
+      const data = await response.json();
+      
+      // First try permanent image
+      const imgResponse = await fetch(`/api/image-proxy?path=pictures/${session.user.username}.png`);
+      const imageUrl = imgResponse.ok 
+        ? `/api/image-proxy?path=pictures/${session.user.username}.png`
+        : data.photo || '/default-avatar.png';
+
+      setProfile(prev => ({
+        ...prev,
+        ...data,
+        photo: imageUrl
+      }));
+    } catch (error) {
+      console.error('Profile load error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Handle form submission
   const handleSave = async (e) => {
@@ -118,7 +117,7 @@ const loadProfile = async () => {
 
     // Client-side validation
     const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    const maxSize = 2 * 1024 * 1024; // 2MB
+    const maxSize = 2 * 1024 * 1024;
 
     if (!validTypes.includes(file.type)) {
       setUploadError('Only JPEG, PNG, or WEBP images are allowed');
@@ -157,7 +156,7 @@ const loadProfile = async () => {
 
       setProfile(prev => ({
         ...prev,
-        photo: `/api/image-proxy?url=${encodeURIComponent(result.tempImageUrl)}`,
+        photo: `/api/image-proxy?path=${encodeURIComponent(result.tempFilePath)}`,
         _tempImagePath: result.tempFilePath
       }));
     } catch (error) {
