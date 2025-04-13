@@ -321,7 +321,9 @@ export default function Editor() {
             <label>Profile Photo</label>
             <div className="photo-upload-container">
               <img 
-                src={profile.photo} 
+                src={profile.photo?.startsWith('http') 
+                  ? `/api/image-proxy?url=${encodeURIComponent(profile.photo)}&ts=${Date.now()}`
+                  : profile.photo || '/default-avatar.png'} 
                 alt="Profile" 
                 className="photo-preview"
                 onError={(e) => {
