@@ -1,19 +1,20 @@
-import NextAuth from "next-auth"
-import GitHubProvider from "next-auth/providers/github"
+import NextAuth from "next-auth";
+import GoogleProvider from "next-auth/providers/google";
+import { Octokit } from "@octokit/rest";  // Import Octokit to interact with GitHub (assuming it's where the username is stored)
 
 export default NextAuth({
   providers: [
-    GitHubProvider({
-      clientId: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       profile(profile) {
         return {
-          id: profile.id.toString(),
-          name: profile.name || profile.login,
-          username: profile.login,
+          id: profile.sub, // Google uses 'sub' as the unique user ID
+          name: profile.name,
+          username: "", // Will be populated from API after login
           email: profile.email,
-          image: profile.avatar_url
-        }
+          image: profile.picture, // Google profile picture URL
+        };
       }
     })
   ],
@@ -31,30 +32,52 @@ export default NextAuth({
         sameSite: 'lax',
         path: '/',
         secure: process.env.NODE_ENV === 'production',
-        domain: process.env.NODE_ENV === 'production' ? '.sequoiasupport.vercel.app' : undefined
-      }
-    }
+        domain: process.env.NODE_ENV === 'production' ? '.sequoiasupport.vercel.app' : undefined,
+      },
+    },
   },
   callbacks: {
     async jwt({ token, user, account }) {
-      // Initial sign in
       if (account && user) {
-        token.accessToken = account.access_token
-        token.username = user.username
+        token.accessToken = account.access_token;
+        
+        // Fetch username from your API or GitHub repo here
+        const octokit = new Octokit({
+          auth: process.env.GITHUB_ACCESS_TOKEN, // Use your GitHub access token here
+        });
+
+        // Example: Fetch username from a GitHub repo (or your database)
+        try {
+          const { data } = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+            owner: 'Kousei-Uchu',  // Replace with your GitHub username
+            repo: 'sequoia-support', // Replace with your repo name
+            path: `users/${user.email}.json`,  // Path to user data in GitHub (or wherever you store it)
+          });
+
+          const userData = Buffer.from(data.content, 'base64').toString('utf-8');
+          const parsedData = JSON.parse(userData);
+
+          // Set the fetched username
+          token.username = parsedData.username || user.email.split('@')[0]; // Default to email prefix if no username found
+        } catch (error) {
+          console.error("Error fetching username from GitHub:", error);
+          token.username = user.email.split('@')[0]; // Default to email prefix if error occurs
+        }
       }
-      return token
+
+      return token;
     },
     async session({ session, token }) {
-      session.accessToken = token.accessToken
-      session.user.username = token.username
-      return session
-    }
+      session.accessToken = token.accessToken;
+      session.user.username = token.username; // Set username in session
+      return session;
+    },
   },
   pages: {
-    signIn: '/auth/signin',
-    error: '/auth/error',
-    signOut: '/auth/signout'
+    signIn: "/auth/signin",
+    error: "/auth/error",
+    signOut: "/auth/signout",
   },
   debug: process.env.NODE_ENV === 'development',
-  useSecureCookies: process.env.NODE_ENV === 'production'
-})
+  useSecureCookies: process.env.NODE_ENV === 'production',
+});
