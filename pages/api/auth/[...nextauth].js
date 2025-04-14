@@ -1,7 +1,18 @@
+// pages/api/auth/[...nextauth].js
+
 import NextAuth from "next-auth"
 import GitHubProvider from "next-auth/providers/github"
+import EmailProvider from "next-auth/providers/email"
+import CredentialsProvider from "next-auth/providers/credentials"
+import { PrismaAdapter } from "@next-auth/prisma-adapter"
+import { PrismaClient } from "@prisma/client"
+import bcrypt from "bcryptjs"
+import nodemailer from "nodemailer"
+
+const prisma = new PrismaClient()
 
 export default NextAuth({
+  adapter: PrismaAdapter(prisma),
   providers: [
     GitHubProvider({
       clientId: process.env.GITHUB_CLIENT_ID,
@@ -15,14 +26,41 @@ export default NextAuth({
           image: profile.avatar_url
         }
       }
+    }),
+
+    EmailProvider({
+      server: process.env.EMAIL_SERVER,
+      from: process.env.EMAIL_FROM
+    }),
+
+    CredentialsProvider({
+      name: "Email and Password",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" }
+      },
+      async authorize(credentials) {
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email }
+        })
+
+        if (user && user.password && bcrypt.compareSync(credentials.password, user.password)) {
+          return user
+        }
+
+        throw new Error("Invalid email or password")
+      }
     })
   ],
-  secret: process.env.NEXTAUTH_SECRET,
+
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-    updateAge: 24 * 60 * 60, // 24 hours
+    maxAge: 30 * 24 * 60 * 60,
+    updateAge: 24 * 60 * 60
   },
+
+  secret: process.env.NEXTAUTH_SECRET,
+
   cookies: {
     sessionToken: {
       name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}next-auth.session-token`,
@@ -35,12 +73,12 @@ export default NextAuth({
       }
     }
   },
+
   callbacks: {
     async jwt({ token, user, account }) {
-      // Initial sign in
       if (account && user) {
         token.accessToken = account.access_token
-        token.username = user.username
+        token.username = user.username || user.name
       }
       return token
     },
@@ -50,11 +88,13 @@ export default NextAuth({
       return session
     }
   },
+
   pages: {
     signIn: '/auth/signin',
     error: '/auth/error',
     signOut: '/auth/signout'
   },
+
   debug: process.env.NODE_ENV === 'development',
   useSecureCookies: process.env.NODE_ENV === 'production'
 })
