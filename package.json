@@ -18,10 +18,14 @@
     "dotenv": "^16.0.3",
     "buffer": "^6.0.3",
     "crypto-js": "^4.1.1",
-    "formidable": "^2.1.1"
+    "formidable": "^2.1.1",
+    "@prisma/client": "^5.0.0",
+    "bcryptjs": "^2.4.3",
+    "nodemailer": "^6.9.5"
   },
   "devDependencies": {
     "eslint": "^8.36.0",
     "eslint-config-next": "^13.4.7"
+    "prisma": "^5.0.0"
   }
 }
